@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgendaCraft — Calendar to Executive Agenda Builder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white !important; }
+      .print-shadow-none { box-shadow: none !important; border: none !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen antialiased selection:bg-indigo-100 selection:text-indigo-900">
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-6 right-6 z-50 hidden transform transition-all duration-300 translate-y-2 opacity-0">
+    <div class="bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2.5 text-sm font-medium border border-slate-700">
+      <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+      </svg>
+      <span id="toast-message">Action completed</span>
+    </div>
+  </div>
+
+  <!-- Top Navigation Bar -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-bold tracking-tight text-slate-900">AgendaCraft</h1>
+            <span class="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">Offline Edition</span>
+          </div>
+          <p class="text-xs text-slate-500 hidden sm:block">Convert exported calendar events into structured, time-boxed meeting agendas</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <button onclick="loadSampleEvent()" class="text-xs sm:text-sm font-medium text-slate-700 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 px-3 py-2 rounded-lg transition-colors">
+          Load Sample Event
+        </button>
+        <button onclick="resetApp()" class="text-xs sm:text-sm font-medium text-slate-500 hover:text-slate-800 px-2.5 py-2 rounded-lg transition-colors">
+          Reset
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+      <!-- Left Column: Calendar Input & Controls -->
+      <div class="lg:col-span-4 space-y-6 no-print">
+
+        <!-- File Upload Card -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+          <h2 class="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-3">1. Import Calendar Event</h2>
+
+          <div id="drop-zone" class="border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50/40 rounded-xl p-6 text-center cursor-pointer transition-all group">
+            <input type="file" id="file-input" accept=".ics,.json,.csv,.txt" class="hidden" />
+            <div class="w-11 h-11 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3 group-hover:scale-105 transition-transform">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            </div>
+            <p class="text-sm font-medium text-slate-800">Drop calendar file here or <span class="text-indigo-600 underline">browse</span></p>
+            <p class="text-xs text-slate-500 mt-1">Supports <strong>.ics</strong> (Apple/Google/Outlook), <strong>.json</strong>, or <strong>.csv</strong></p>
+          </div>
+
+          <!-- Toggle Raw Paste -->
+          <div class="mt-4 pt-4 border-t border-slate-100">
+            <button onclick="togglePasteBox()" class="w-full flex items-center justify-between text-xs font-medium text-slate-600 hover:text-indigo-600 transition-colors">
+              <span>Or paste raw .ics / event notes</span>
+              <svg id="paste-chevron" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div id="paste-container" class="hidden mt-3 space-y-2.5">
+              <textarea id="raw-paste-input" rows="5" placeholder="Paste BEGIN:VCALENDAR... or event description notes here..." class="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+              <button onclick="parsePastedText()" class="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold py-2 rounded-lg transition-colors">
+                Parse & Generate Agenda
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Optional Gemini API Key Card -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+          <div class="flex items-center justify-between mb-2">
+            <h2 class="text-sm font-semibold text-slate-900 uppercase tracking-wider">2. Agenda Engine</h2>
+            <span id="engine-badge" class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Built-in Smart Structurer</span>
+          </div>
+          <p class="text-xs text-slate-500 leading-relaxed mb-3">
+            Works 100% offline automatically. Optionally add a Google Gemini API key (saved locally in your browser) for custom AI-tailored topic drafting.
+          </p>
+          <div class="flex gap-2">
+            <input type="password" id="gemini-api-key" placeholder="Optional: AIzaSy..." class="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+            <button onclick="saveApiKey()" class="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold px-3 py-2 rounded-lg transition-colors">
+              Save
+            </button>
+          </div>
+        </div>
+
+        <!-- Time Balance Card -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="text-sm font-semibold text-slate-900 uppercase tracking-wider">Time Allocation</h2>
+            <button onclick="autoBalanceTimes()" class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md transition-colors">
+              Auto-Balance
+            </button>
+          </div>
+
+          <div class="flex items-baseline justify-between mb-2">
+            <div>
+              <span id="allocated-mins" class="text-2xl font-bold text-slate-900">60</span>
+              <span class="text-xs text-slate-500">min scheduled</span>
+            </div>
+            <div class="text-right">
+              <span class="text-xs text-slate-500">Target: </span>
+              <input type="number" id="target-duration-input" value="60" min="5" max="480" onchange="updateTargetDuration(this.value)" class="w-14 text-right text-xs font-semibold bg-slate-50 border border-slate-200 rounded px-1.5 py-1" />
+              <span class="text-xs text-slate-500">min</span>
+            </div>
+          </div>
+
+          <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+            <div id="time-progress-bar" class="h-full bg-emerald-500 transition-all duration-300" style="width: 100%"></div>
+          </div>
+          <p id="time-status-text" class="text-xs text-emerald-700 font-medium mt-2">Perfectly balanced to meeting length.</p>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Live Agenda Builder & Export Document -->
+      <div class="lg:col-span-8 space-y-5">
+
+        <!-- Export Action Toolbar -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 flex flex-wrap items-center justify-between gap-3 no-print">
+          <div class="flex items-center gap-2">
+            <button onclick="regenerateAgenda()" id="regenerate-btn" class="inline-flex items-center gap-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg shadow-sm transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Regenerate Outline
+            </button>
+            <button onclick="addAgendaItem()" class="inline-flex items-center gap-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 px-3 py-2 rounded-lg transition-colors">
+              + Add Topic
+            </button>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="copyMarkdown()" class="text-xs font-medium text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors">
+              Copy Markdown
+            </button>
+            <button onclick="copyEmailText()" class="text-xs font-medium text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors">
+              Copy Email Text
+            </button>
+            <button onclick="downloadMarkdown()" class="text-xs font-medium text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors">
+              Download .md
+            </button>
+            <button onclick="downloadPDF()" id="pdf-btn" class="inline-flex items-center gap-1.5 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-lg shadow-sm transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download PDF
+            </button>
+          </div>
+        </div>
+
+        <!-- Executive Agenda Document Sheet -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm print-shadow-none overflow-hidden">
+          <div class="h-2 bg-indigo-600"></div>
+
+          <div class="p-6 sm:p-8 space-y-6">
+            <!-- Simplified Agenda Header -->
+            <div class="space-y-4 pb-6 border-b border-slate-200">
+              <div>
+                <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1 no-print">Meeting Title</label>
+                <input type="text" id="meta-title" value="Q4 Product Roadmap & Resource Alignment" oninput="state.title = this.value" class="w-full text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight bg-transparent border-b border-transparent hover:border-slate-200 focus:border-indigo-500 focus:outline-none pb-1 transition-colors" />
+              </div>
+
+              <!-- Date & Time Row -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                  <span class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">Date</span>
+                  <input type="text" id="meta-date" value="Thursday, November 19, 2026" oninput="state.date = this.value" class="w-full text-sm font-medium text-slate-800 bg-transparent focus:outline-none" />
+                </div>
+                <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                  <span class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">Time</span>
+                  <input type="text" id="meta-time" value="10:00 AM – 11:00 AM EST (60 min)" oninput="state.time = this.value" class="w-full text-sm font-medium text-slate-800 bg-transparent focus:outline-none" />
+                </div>
+              </div>
+
+              <!-- Attendees -->
+              <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-100">
+                <span class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Attendees</span>
+                <div id="attendees-list" class="flex flex-wrap items-center gap-1.5"></div>
+                <div class="mt-2 flex items-center gap-2 no-print">
+                  <input type="text" id="new-attendee-input" placeholder="Add attendee name or email and press Enter..." onkeydown="if(event.key==='Enter'){event.preventDefault();addAttendee();}" class="flex-1 text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  <button onclick="addAttendee()" class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 px-2.5 py-1.5">Add</button>
+                </div>
+              </div>
+
+              <!-- Brief Meeting Objective / Purpose Statement -->
+              <div class="bg-indigo-50/50 rounded-xl p-3.5 border border-indigo-100/80">
+                <span class="block text-[11px] font-semibold uppercase tracking-wider text-indigo-600 mb-1">Meeting Objective</span>
+                <textarea id="meta-objective" rows="2" oninput="state.objective = this.value" class="w-full text-sm text-slate-700 bg-transparent focus:outline-none resize-none leading-relaxed">Finalize Q4 feature priorities, resolve cross-team engineering dependencies, and approve launch milestones before sprint kickoff.</textarea>
+              </div>
+            </div>
+
+            <!-- Agenda Outline Table -->
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Meeting Outline</h3>
+                <span class="text-xs text-slate-400 no-print">Click any field to edit inline</span>
+              </div>
+
+              <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      <th class="py-3 px-4 w-1/3">Topic</th>
+                      <th class="py-3 px-4">Details</th>
+                      <th class="py-3 px-4 w-28 text-right">Time</th>
+                      <th class="py-3 px-2 w-16 text-center no-print"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="agenda-tbody" class="divide-y divide-slate-200 text-sm">
+                    <!-- Rendered dynamically -->
+                  </tbody>
+                  <tfoot>
+                    <tr class="bg-slate-50 border-t border-slate-200 font-semibold text-slate-800 text-xs">
+                      <td colspan="2" class="py-3 px-4 text-right uppercase tracking-wider text-slate-500">Total Scheduled Time</td>
+                      <td class="py-3 px-4 text-right font-bold text-indigo-700" id="table-total-time">60 min</td>
+                      <td class="no-print"></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Application State
+    const state = {
+      title: "Q4 Product Roadmap & Resource Alignment",
+      date: "Thursday, November 19, 2026",
+      time: "10:00 AM – 11:00 AM EST (60 min)",
+      durationMinutes: 60,
+      attendees: ["Maya Lin", "Jordan Vance", "Priya Patel", "Liam O'Connor"],
+      objective: "Finalize Q4 feature priorities, resolve cross-team engineering dependencies, and approve launch milestones before sprint kickoff.",
+      rawDescription: "",
+      items: [
+        {
+          topic: "Context & Q3 Performance Recap",
+          details: "Review key Q3 adoption metrics, customer feedback highlights, and baseline capacity.",
+          minutes: 10
+        },
+        {
+          topic: "Q4 Priority Initiatives & Scope",
+          details: "Walk through top 3 candidate deliverables, expected customer impact, and trade-offs.",
+          minutes: 20
+        },
+        {
+          topic: "Dependencies & Resource Allocation",
+          details: "Identify cross-functional bottlenecks, QA timelines, and engineering bandwidth.",
+          minutes: 20
+        },
+        {
+          topic: "Decisions, Action Items & Next Steps",
+          details: "Confirm final scope sign-off, assign owners, and set check-in cadence.",
+          minutes: 10
+        }
+      ]
+    };
+
+    // Initialize
+    document.addEventListener("DOMContentLoaded", () => {
+      const savedKey = localStorage.getItem("agendacraft_gemini_key");
+      if (savedKey) {
+        document.getElementById("gemini-api-key").value = savedKey;
+        updateEngineBadge(true);
+      }
+      setupDragAndDrop();
+      renderAll();
+    });
+
+    function showToast(msg) {
+      const toast = document.getElementById("toast");
+      const label = document.getElementById("toast-message");
+      label.textContent = msg;
+      toast.classList.remove("hidden");
+      requestAnimationFrame(() => {
+        toast.classList.remove("translate-y-2", "opacity-0");
+      });
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => {
+        toast.classList.add("translate-y-2", "opacity-0");
+        setTimeout(() => toast.classList.add("hidden"), 300);
+      }, 2800);
+    }
+
+    function saveApiKey() {
+      const key = document.getElementById("gemini-api-key").value.trim();
+      if (key) {
+        localStorage.setItem("agendacraft_gemini_key", key);
+        updateEngineBadge(true);
+        showToast("Gemini API key saved locally in browser");
+      } else {
+        localStorage.removeItem("agendacraft_gemini_key");
+        updateEngineBadge(false);
+        showToast("API key cleared — using offline structurer");
+      }
+    }
+
+    function updateEngineBadge(hasKey) {
+      const badge = document.getElementById("engine-badge");
+      if (hasKey) {
+        badge.textContent = "Gemini AI Enabled";
+        badge.className = "text-[11px] font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200";
+      } else {
+        badge.textContent = "Built-in Smart Structurer";
+        badge.className = "text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200";
+      }
+    }
+
+    function togglePasteBox() {
+      const box = document.getElementById("paste-container");
+      const chev = document.getElementById("paste-chevron");
+      box.classList.toggle("hidden");
+      chev.classList.toggle("rotate-180");
+    }
+
+    // Drag & Drop File Setup
+    function setupDragAndDrop() {
+      const dropZone = document.getElementById("drop-zone");
+      const fileInput = document.getElementById("file-input");
+
+      dropZone.addEventListener("click", () => fileInput.click());
+      dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropZone.classList.add("border-indigo-500", "bg-indigo-50/60");
+      });
+      dropZone.addEventListener("dragleave", () => {
+        dropZone.classList.remove("border-indigo-500", "bg-indigo-50/60");
+      });
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("border-indigo-500", "bg-indigo-50/60");
+        if (e.dataTransfer.files.length) {
+          handleFile(e.dataTransfer.files[0]);
+        }
+      });
+      fileInput.addEventListener("change", (e) => {
+        if (e.target.files.length) {
+          handleFile(e.target.files[0]);
+        }
+      });
+    }
+
+    function handleFile(file) {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const text = e.target.result;
+        await processCalendarContent(text, file.name);
+      };
+      reader.readAsText(file);
+    }
+
+    async function parsePastedText() {
+      const text = document.getElementById("raw-paste-input").value.trim();
+      if (!text) {
+        showToast("Please paste calendar event text first");
+        return;
+      }
+      await processCalendarContent(text, "pasted.txt");
+    }
+
+    // Calendar Parsers (.ics, .json, .csv, fallback text)
+    function parseICS(icsText) {
+      // Unfold folded lines per RFC 5545
+      const unfolded = icsText.replace(/
+?
+[ 	]/g, "");
+      const lines = unfolded.split(/
+?
+/);
+
+      let summary = "";
+      let description = "";
+      let dtStart = null;
+      let dtEnd = null;
+      let durationMins = null;
+      const attendees = [];
+
+      for (const line of lines) {
+        if (line.startsWith("SUMMARY")) {
+          summary = decodeICSValue(line.split(":").slice(1).join(":"));
+        } else if (line.startsWith("DESCRIPTION")) {
+          description = decodeICSValue(line.split(":").slice(1).join(":"));
+        } else if (line.startsWith("DTSTART")) {
+          const val = line.split(":").slice(1).join(":");
+          dtStart = parseICSDate(val);
+        } else if (line.startsWith("DTEND")) {
+          const val = line.split(":").slice(1).join(":");
+          dtEnd = parseICSDate(val);
+        } else if (line.startsWith("DURATION")) {
+          const val = line.split(":").slice(1).join(":");
+          const m = val.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+          if (m) {
+            durationMins = (parseInt(m[1] || "0", 10) * 60) + parseInt(m[2] || "0", 10);
+          }
+        } else if (line.startsWith("ATTENDEE")) {
+          const cnMatch = line.match(/CN="?([^";:]+)"?/i);
+          const mailMatch = line.match(/mailto:([^\s;]+)/i);
+          const person = cnMatch ? cnMatch[1].trim() : (mailMatch ? mailMatch[1].trim() : "");
+          if (person && !attendees.includes(person)) {
+            attendees.push(person);
+          }
+        }
+      }
+
+      if (dtStart && dtEnd && !durationMins) {
+        durationMins = Math.max(5, Math.round((dtEnd - dtStart) / 60000));
+      }
+      if (!durationMins) durationMins = 45;
+
+      let dateStr = state.date;
+      let timeStr = `${durationMins} min`;
+
+      if (dtStart) {
+        dateStr = dtStart.toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric"
+        });
+        const startFmt = dtStart.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+        if (dtEnd) {
+          const endFmt = dtEnd.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+          timeStr = `${startFmt} – ${endFmt} (${durationMins} min)`;
+        } else {
+          timeStr = `${startFmt} (${durationMins} min)`;
+        }
+      }
+
+      return {
+        title: summary || "Team Sync & Planning Session",
+        date: dateStr,
+        time: timeStr,
+        durationMinutes: durationMins,
+        attendees: attendees.length ? attendees : ["Team Members"],
+        rawDescription: description
+      };
+    }
+
+    function decodeICSValue(str) {
+      return str
+        .replace(/\n/gi, "
+")
+        .replace(/\,/g, ",")
+        .replace(/\;/g, ";")
+        .replace(/\\/g, "\")
+        .trim();
+    }
+
+    function parseICSDate(val) {
+      // Handles YYYYMMDDTHHMMSSZ or YYYYMMDDTHHMMSS or YYYYMMDD
+      const clean = val.trim();
+      const m = clean.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z)?)?$/);
+      if (!m) return null;
+      const year = parseInt(m[1], 10);
+      const month = parseInt(m[2], 10) - 1;
+      const day = parseInt(m[3], 10);
+      const hour = parseInt(m[4] || "9", 10);
+      const min = parseInt(m[5] || "0", 10);
+      const sec = parseInt(m[6] || "0", 10);
+      if (m[7] === "Z") {
+        return new Date(Date.UTC(year, month, day, hour, min, sec));
+      }
+      return new Date(year, month, day, hour, min, sec);
+    }
+
+    function parseJSONEvent(text) {
+      const data = JSON.parse(text);
+      const ev = Array.isArray(data) ? data[0] : (data.items ? data.items[0] : data);
+      const title = ev.summary || ev.title || ev.subject || "Team Meeting";
+      const description = ev.description || ev.purpose || ev.body || "";
+      const start = ev.start?.dateTime || ev.start || ev.startTime;
+      const end = ev.end?.dateTime || ev.end || ev.endTime;
+
+      let durationMins = parseInt(ev.duration || ev.durationMinutes || 0, 10);
+      let dateStr = ev.date || state.date;
+      let timeStr = "";
+
+      if (start) {
+        const sDate = new Date(start);
+        if (!isNaN(sDate)) {
+          dateStr = sDate.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+          const sFmt = sDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+          if (end) {
+            const eDate = new Date(end);
+            if (!isNaN(eDate)) {
+              if (!durationMins) durationMins = Math.max(5, Math.round((eDate - sDate) / 60000));
+              const eFmt = eDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+              timeStr = `${sFmt} – ${eFmt} (${durationMins} min)`;
+            }
+          }
+          if (!timeStr) {
+            durationMins = durationMins || 45;
+            timeStr = `${sFmt} (${durationMins} min)`;
+          }
+        }
+      }
+      if (!durationMins) durationMins = 45;
+      if (!timeStr) timeStr = `${durationMins} min`;
+
+      let attendees = [];
+      if (Array.isArray(ev.attendees)) {
+        attendees = ev.attendees.map(a => typeof a === "string" ? a : (a.displayName || a.name || a.email)).filter(Boolean);
+      } else if (typeof ev.attendees === "string") {
+        attendees = ev.attendees.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+      }
+
+      return {
+        title,
+        date: dateStr,
+        time: timeStr,
+        durationMinutes: durationMins,
+        attendees: attendees.length ? attendees : ["Team Members"],
+        rawDescription: description
+      };
+    }
+
+    function parseCSVEvent(text) {
+      const lines = text.trim().split(/
+?
+/);
+      if (lines.length < 2) return null;
+      const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/^"|"$/g, ""));
+      const values = lines[1].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[1].split(",");
+      const row = {};
+      headers.forEach((h, i) => {
+        row[h] = (values[i] || "").replace(/^"|"$/g, "").trim();
+      });
+
+      const title = row.subject || row.title || row.summary || "Scheduled Meeting";
+      const dateStr = row["start date"] || row.date || state.date;
+      const startTime = row["start time"] || row.start || "";
+      const endTime = row["end time"] || row.end || "";
+      const durationMins = parseInt(row.duration || row.minutes || "45", 10) || 45;
+      const timeStr = startTime && endTime ? `${startTime} – ${endTime} (${durationMins} min)` : `${durationMins} min`;
+      const rawAttendees = row.attendees || row["required attendees"] || "";
+      const attendees = rawAttendees ? rawAttendees.split(/[;|]/).map(s => s.trim()).filter(Boolean) : ["Team Members"];
+      const description = row.description || row.purpose || row.notes || "";
+
+      return {
+        title,
+        date: dateStr,
+        time: timeStr,
+        durationMinutes: durationMins,
+        attendees,
+        rawDescription: description
+      };
+    }
+
+    async function processCalendarContent(text, filename) {
+      let parsed = null;
+      try {
+        if (text.includes("BEGIN:VCALENDAR") || filename.endsWith(".ics")) {
+          parsed = parseICS(text);
+        } else if (text.trim().startsWith("{") || text.trim().startsWith("[") || filename.endsWith(".json")) {
+          parsed = parseJSONEvent(text);
+        } else if (filename.endsWith(".csv") || (text.includes(",") && text.split("
+").length >= 2)) {
+          parsed = parseCSVEvent(text);
+        }
+      } catch (err) {
+        console.warn("Structured parse fallback:", err);
+      }
+
+      if (!parsed) {
+        parsed = {
+          title: filename.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ") || "Team Planning Meeting",
+          date: state.date,
+          time: "45 min",
+          durationMinutes: 45,
+          attendees: ["Team Members"],
+          rawDescription: text.trim()
+        };
+      }
+
+      state.title = parsed.title;
+      state.date = parsed.date;
+      state.time = parsed.time;
+      state.durationMinutes = parsed.durationMinutes;
+      state.attendees = parsed.attendees;
+      state.rawDescription = parsed.rawDescription;
+
+      await generateOutlineFromEvent();
+      renderAll();
+      showToast(`Imported "${state.title}"`);
+    }
+
+    // Generate Objective + Time-Boxed Outline (Gemini API if key exists, else smart offline structurer)
+    async function generateOutlineFromEvent() {
+      const apiKey = localStorage.getItem("agendacraft_gemini_key");
+      const btn = document.getElementById("regenerate-btn");
+      btn.disabled = true;
+      btn.classList.add("opacity-60");
+
+      if (apiKey) {
+        try {
+          const prompt = `Create a structured meeting agenda based on this calendar event:
+Title: ${state.title}
+Duration: ${state.durationMinutes} minutes
+Attendees: ${state.attendees.join(", ")}
+Event Purpose / Notes: ${state.rawDescription || "General alignment and decision-making"}
+
+Return ONLY valid JSON matching this exact structure:
+{
+  "objective": "One concise, clear sentence stating the meeting purpose/goal.",
+  "items": [
+    {
+      "topic": "Clear agenda topic title",
+      "details": "Specific discussion points or expected outcome",
+      "minutes": 15
+    }
+  ]
+}
+Ensure the sum of "minutes" across all items equals exactly ${state.durationMinutes}. Do not include a facilitator field.`;
+
+          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: { responseMimeType: "application/json" }
+            })
+          });
+
+          if (resp.ok) {
+            const data = await resp.json();
+            const rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (rawJson) {
+              const result = JSON.parse(rawJson);
+              if (result.objective) state.objective = result.objective;
+              if (Array.isArray(result.items) && result.items.length) {
+                state.items = result.items.map(it => ({
+                  topic: it.topic || "Discussion Item",
+                  details: it.details || "",
+                  minutes: Math.max(1, parseInt(it.minutes, 10) || 10)
+                }));
+                btn.disabled = false;
+                btn.classList.remove("opacity-60");
+                return;
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Gemini API call failed, falling back to offline structurer:", err);
+        }
+      }
+
+      // Deterministic Offline Smart Structurer
+      buildOfflineAgenda();
+      btn.disabled = false;
+      btn.classList.remove("opacity-60");
+    }
+
+    function buildOfflineAgenda() {
+      const desc = (state.rawDescription || "").trim();
+      const total = Math.max(10, state.durationMinutes || 45);
+
+      // Extract bullet points or sentences from description if present
+      const extractedLines = desc
+        .split(/
+?
+|[•\-*]\s+/)
+        .map(s => s.replace(/^[\-\*\d\.\)]+\s*/, "").trim())
+        .filter(s => s.length > 4 && s.length < 140);
+
+      if (desc) {
+        const firstSentence = desc.split(/[.!?
+]/)[0].trim();
+        state.objective = firstSentence.length > 10
+          ? (firstSentence.endsWith(".") ? firstSentence : firstSentence + ".")
+          : `Align on ${state.title} goals, review key updates, and confirm next steps.`;
+      } else {
+        state.objective = `Align on ${state.title} objectives, resolve open questions, and agree on actionable next steps.`;
+      }
+
+      if (extractedLines.length >= 2) {
+        const topics = extractedLines.slice(0, 5);
+        const items = topics.map(line => ({
+          topic: line.length > 52 ? line.slice(0, 49) + "..." : line,
+          details: `Review context, surface blockers, and align on decisions for ${line.toLowerCase()}.`,
+          minutes: 10
+        }));
+        items.push({
+          topic: "Action Items & Next Steps",
+          details: "Confirm owners, deadlines, and follow-up milestones.",
+          minutes: 5
+        });
+        state.items = items;
+        autoBalanceTimes(true);
+      } else {
+        state.items = [
+          {
+            topic: "Opening & Context Alignment",
+            details: `Review meeting objective for ${state.title} and confirm key priorities.`,
+            minutes: Math.max(5, Math.round(total * 0.15))
+          },
+          {
+            topic: "Core Discussion & Deep Dive",
+            details: desc || "Examine primary proposals, trade-offs, and cross-team dependencies.",
+            minutes: Math.max(10, Math.round(total * 0.45))
+          },
+          {
+            topic: "Open Questions & Risk Review",
+            details: "Address blockers, resource constraints, and alignment gaps.",
+            minutes: Math.max(5, Math.round(total * 0.25))
+          },
+          {
+            topic: "Decisions & Next Steps",
+            details: "Summarize agreed outcomes, assign action owners, and set target dates.",
+            minutes: Math.max(5, total - (Math.max(5, Math.round(total * 0.15)) + Math.max(10, Math.round(total * 0.45)) + Math.max(5, Math.round(total * 0.25))))
+          }
+        ];
+      }
+    }
+
+    async function regenerateAgenda() {
+      await generateOutlineFromEvent();
+      renderAll();
+      showToast("Agenda outline regenerated");
+    }
+
+    function loadSampleEvent() {
+      const sampleICS = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//AgendaCraft//Sample//EN
+BEGIN:VEVENT
+DTSTART:20261124T140000Z
+DTEND:20261124T150000Z
+SUMMARY:Customer Onboarding Redesign Kickoff
+DESCRIPTION:Align product, design, and engineering on simplifying the self-serve onboarding flow to improve 7-day activation.\n- Review current funnel drop-off data\n- Evaluate simplified 3-step setup prototype\n- Define Q4 engineering milestones and QA scope
+ATTENDEE;CN="Elena Rostova":mailto:elena@example.com
+ATTENDEE;CN="Marcus Vance":mailto:marcus@example.com
+ATTENDEE;CN="Devon Brooks":mailto:devon@example.com
+ATTENDEE;CN="Sora Takahashi":mailto:sora@example.com
+END:VEVENT
+END:VCALENDAR`;
+      processCalendarContent(sampleICS, "onboarding-kickoff.ics");
+    }
+
+    function resetApp() {
+      state.title = "Team Strategy & Alignment Sync";
+      state.date = "Wednesday, November 25, 2026";
+      state.time = "2:00 PM – 2:45 PM EST (45 min)";
+      state.durationMinutes = 45;
+      state.attendees = ["Alex Morgan", "Taylor Kim"];
+      state.objective = "Review current priorities, resolve open blockers, and confirm weekly deliverables.";
+      state.rawDescription = "";
+      state.items = [
+        { topic: "Status & Priority Check-in", details: "Share quick progress updates and highlight key wins.", minutes: 15 },
+        { topic: "Blocker Resolution & Decisions", details: "Discuss open dependencies and make necessary trade-offs.", minutes: 20 },
+        { topic: "Action Items & Wrap-up", details: "Confirm owners and target completion dates.", minutes: 10 }
+      ];
+      renderAll();
+      showToast("Workspace reset");
+    }
+
+    // Rendering & Editing
+    function renderAll() {
+      document.getElementById("meta-title").value = state.title;
+      document.getElementById("meta-date").value = state.date;
+      document.getElementById("meta-time").value = state.time;
+      document.getElementById("meta-objective").value = state.objective;
+      document.getElementById("target-duration-input").value = state.durationMinutes;
+
+      renderAttendees();
+      renderAgendaTable();
+      updateTimeStats();
+    }
+
+    function renderAttendees() {
+      const container = document.getElementById("attendees-list");
+      container.innerHTML = "";
+      state.attendees.forEach((person, idx) => {
+        const chip = document.createElement("span");
+        chip.className = "inline-flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-medium px-2.5 py-1 rounded-full shadow-2xs";
+        chip.innerHTML = `
+          <span>${escapeHTML(person)}</span>
+          <button onclick="removeAttendee(${idx})" class="text-slate-400 hover:text-rose-500 no-print" title="Remove">×</button>
+        `;
+        container.appendChild(chip);
+      });
+    }
+
+    function addAttendee() {
+      const input = document.getElementById("new-attendee-input");
+      const val = input.value.trim();
+      if (val) {
+        state.attendees.push(val);
+        input.value = "";
+        renderAttendees();
+      }
+    }
+
+    function removeAttendee(index) {
+      state.attendees.splice(index, 1);
+      renderAttendees();
+    }
+
+    function renderAgendaTable() {
+      const tbody = document.getElementById("agenda-tbody");
+      tbody.innerHTML = "";
+
+      state.items.forEach((item, idx) => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-50/70 transition-colors group align-top";
+        tr.innerHTML = `
+          <td class="py-3 px-4">
+            <input type="text" value="${escapeAttr(item.topic)}" oninput="updateItem(${idx}, 'topic', this.value)"
+              class="w-full font-semibold text-slate-900 bg-transparent border-b border-transparent focus:border-indigo-500 focus:outline-none pb-0.5" />
+          </td>
+          <td class="py-3 px-4">
+            <textarea rows="2" oninput="updateItem(${idx}, 'details', this.value)"
+              class="w-full text-slate-600 bg-transparent border-b border-transparent focus:border-indigo-500 focus:outline-none resize-none leading-snug">${escapeHTML(item.details)}</textarea>
+          </td>
+          <td class="py-3 px-4 text-right">
+            <div class="inline-flex items-center justify-end gap-1">
+              <input type="number" min="1" max="300" value="${item.minutes}" oninput="updateItem(${idx}, 'minutes', parseInt(this.value, 10) || 0)"
+                class="w-14 text-right font-semibold text-indigo-700 bg-indigo-50/70 border border-indigo-100 rounded-md px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <span class="text-xs text-slate-500">min</span>
+            </div>
+          </td>
+          <td class="py-3 px-2 text-center no-print">
+            <div class="flex items-center justify-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+              <button onclick="moveItem(${idx}, -1)" class="p-1 text-slate-500 hover:text-slate-900" title="Move up">↑</button>
+              <button onclick="moveItem(${idx}, 1)" class="p-1 text-slate-500 hover:text-slate-900" title="Move down">↓</button>
+              <button onclick="deleteItem(${idx})" class="p-1 text-slate-400 hover:text-rose-600" title="Delete">✕</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updateItem(idx, field, value) {
+      state.items[idx][field] = value;
+      if (field === "minutes") {
+        updateTimeStats();
+      }
+    }
+
+    function addAgendaItem() {
+      state.items.push({
+        topic: "New Discussion Topic",
+        details: "Key talking points, context, and expected outcome.",
+        minutes: 10
+      });
+      renderAgendaTable();
+      updateTimeStats();
+    }
+
+    function deleteItem(idx) {
+      if (state.items.length <= 1) {
+        showToast("Agenda must keep at least one topic");
+        return;
+      }
+      state.items.splice(idx, 1);
+      renderAgendaTable();
+      updateTimeStats();
+    }
+
+    function moveItem(idx, dir) {
+      const target = idx + dir;
+      if (target < 0 || target >= state.items.length) return;
+      const temp = state.items[idx];
+      state.items[idx] = state.items[target];
+      state.items[target] = temp;
+      renderAgendaTable();
+    }
+
+    function updateTargetDuration(val) {
+      state.durationMinutes = Math.max(5, parseInt(val, 10) || 45);
+      updateTimeStats();
+    }
+
+    function autoBalanceTimes(silent = false) {
+      const target = state.durationMinutes;
+      const currentTotal = state.items.reduce((acc, it) => acc + (it.minutes || 0), 0);
+      if (!state.items.length) return;
+
+      if (currentTotal === 0) {
+        const even = Math.floor(target / state.items.length);
+        state.items.forEach((it, i) => {
+          it.minutes = i === state.items.length - 1 ? target - even * (state.items.length - 1) : even;
+        });
+      } else {
+        let running = 0;
+        state.items.forEach((it, i) => {
+          if (i === state.items.length - 1) {
+            it.minutes = Math.max(1, target - running);
+          } else {
+            const scaled = Math.max(1, Math.round((it.minutes / currentTotal) * target));
+            it.minutes = scaled;
+            running += scaled;
+          }
+        });
+      }
+
+      renderAgendaTable();
+      updateTimeStats();
+      if (!silent) showToast(`Balanced items to ${target} minutes`);
+    }
+
+    function updateTimeStats() {
+      const total = state.items.reduce((sum, it) => sum + (Number(it.minutes) || 0), 0);
+      const target = state.durationMinutes;
+      const diff = total - target;
+
+      document.getElementById("allocated-mins").textContent = total;
+      document.getElementById("table-total-time").textContent = `${total} min`;
+
+      const bar = document.getElementById("time-progress-bar");
+      const status = document.getElementById("time-status-text");
+      const pct = Math.min(100, Math.round((total / Math.max(1, target)) * 100));
+      bar.style.width = `${pct}%`;
+
+      if (diff === 0) {
+        bar.className = "h-full bg-emerald-500 transition-all duration-300";
+        status.className = "text-xs text-emerald-700 font-medium mt-2";
+        status.textContent = "Perfectly balanced to meeting length.";
+      } else if (diff > 0) {
+        bar.className = "h-full bg-amber-500 transition-all duration-300";
+        status.className = "text-xs text-amber-700 font-medium mt-2";
+        status.textContent = `${diff} min over scheduled meeting time.`;
+      } else {
+        bar.className = "h-full bg-indigo-500 transition-all duration-300";
+        status.className = "text-xs text-indigo-700 font-medium mt-2";
+        status.textContent = `${Math.abs(diff)} min unallocated buffer remaining.`;
+      }
+    }
+
+    // Export Functions
+    function buildMarkdownString() {
+      const attendeesStr = state.attendees.join(", ");
+      const rows = state.items
+        .map(it => `| ${it.topic.replace(/\|/g, "\|")} | ${it.details.replace(/\|/g, "\|").replace(/
+/g, " ")} | ${it.minutes} min |`)
+        .join("
+");
+      const total = state.items.reduce((sum, it) => sum + (Number(it.minutes) || 0), 0);
+
+      return `# ${state.title}
+
+- **Date:** ${state.date}
+- **Time:** ${state.time}
+- **Attendees:** ${attendeesStr}
+- **Objective:** ${state.objective}
+
+## Meeting Outline
+
+| Topic | Details | Time |
+| :--- | :--- | :---: |
+${rows}
+| **Total** | | **${total} min** |
+`;
+    }
+
+    function copyMarkdown() {
+      navigator.clipboard.writeText(buildMarkdownString());
+      showToast("Markdown agenda copied to clipboard");
+    }
+
+    function copyEmailText() {
+      const lines = [
+        `MEETING AGENDA: ${state.title}`,
+        `Date: ${state.date}`,
+        `Time: ${state.time}`,
+        `Attendees: ${state.attendees.join(", ")}`,
+        `Objective: ${state.objective}`,
+        ``,
+        `OUTLINE:`,
+        ...state.items.map((it, i) => `${i + 1}. ${it.topic} (${it.minutes} min)
+   - ${it.details}`)
+      ];
+      navigator.clipboard.writeText(lines.join("
+"));
+      showToast("Plain-text email agenda copied");
+    }
+
+    function downloadMarkdown() {
+      const blob = new Blob([buildMarkdownString()], { type: "text/markdown;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${slugify(state.title)}-agenda.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast("Markdown file downloaded");
+    }
+
+    function downloadPDF() {
+      const btn = document.getElementById("pdf-btn");
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        window.print();
+        return;
+      }
+
+      btn.disabled = true;
+      try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: "pt", format: "letter" });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 48;
+        const contentWidth = pageWidth - margin * 2;
+        let y = 54;
+
+        const checkPageBreak = (needed) => {
+          if (y + needed > pageHeight - 48) {
+            doc.addPage();
+            y = 54;
+          }
+        };
+
+        // Top Accent Rule
+        doc.setFillColor(79, 70, 229);
+        doc.rect(margin, y - 18, 42, 4, "F");
+
+        // Title
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(20);
+        doc.setTextColor(15, 23, 42);
+        const titleLines = doc.splitTextToSize(state.title, contentWidth);
+        doc.text(titleLines, margin, y + 6);
+        y += titleLines.length * 24 + 12;
+
+        // Metadata Block
+        doc.setFontSize(10);
+        const metaRows = [
+          ["Date:", state.date],
+          ["Time:", state.time],
+          ["Attendees:", state.attendees.join(", ")],
+          ["Objective:", state.objective]
+        ];
+
+        metaRows.forEach(([label, val]) => {
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(71, 85, 105);
+          doc.text(label, margin, y);
+
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(30, 41, 59);
+          const wrapped = doc.splitTextToSize(val || "—", contentWidth - 72);
+          doc.text(wrapped, margin + 72, y);
+          y += wrapped.length * 14 + 6;
+        });
+
+        y += 10;
+
+        // Table Header
+        const colTopicW = 165;
+        const colTimeW = 60;
+        const colDetailsW = contentWidth - colTopicW - colTimeW;
+
+        doc.setFillColor(241, 245, 249);
+        doc.rect(margin, y, contentWidth, 24, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(71, 85, 105);
+        doc.text("TOPIC", margin + 8, y + 15);
+        doc.text("DETAILS", margin + colTopicW + 8, y + 15);
+        doc.text("TIME", margin + contentWidth - 8, y + 15, { align: "right" });
+        y += 24;
+
+        // Table Rows
+        state.items.forEach((item) => {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(10);
+          const topicLines = doc.splitTextToSize(item.topic, colTopicW - 14);
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9.5);
+          const detailLines = doc.splitTextToSize(item.details, colDetailsW - 14);
+
+          const rowHeight = Math.max(topicLines.length, detailLines.length) * 13 + 16;
+          checkPageBreak(rowHeight);
+
+          doc.setDrawColor(226, 232, 240);
+          doc.line(margin, y + rowHeight, margin + contentWidth, y + rowHeight);
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(10);
+          doc.setTextColor(15, 23, 42);
+          doc.text(topicLines, margin + 8, y + 14);
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9.5);
+          doc.setTextColor(71, 85, 105);
+          doc.text(detailLines, margin + colTopicW + 8, y + 14);
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9.5);
+          doc.setTextColor(79, 70, 229);
+          doc.text(`${item.minutes} min`, margin + contentWidth - 8, y + 14, { align: "right" });
+
+          y += rowHeight;
+        });
+
+        // Total Row
+        const total = state.items.reduce((sum, it) => sum + (Number(it.minutes) || 0), 0);
+        checkPageBreak(28);
+        doc.setFillColor(248, 250, 252);
+        doc.rect(margin, y, contentWidth, 26, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9.5);
+        doc.setTextColor(71, 85, 105);
+        doc.text("TOTAL SCHEDULED TIME", margin + contentWidth - 75, y + 16, { align: "right" });
+        doc.setTextColor(79, 70, 229);
+        doc.text(`${total} min`, margin + contentWidth - 8, y + 16, { align: "right" });
+
+        doc.save(`${slugify(state.title)}-agenda.pdf`);
+        showToast("PDF downloaded!");
+      } catch (err) {
+        console.error(err);
+        window.print();
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function slugify(str) {
+      return (str || "meeting").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    }
+
+    function escapeHTML(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function escapeAttr(str) {
+      return escapeHTML(str).replace(/'/g, "&#39;");
+    }
+  </script>
+</body>
+</html>
