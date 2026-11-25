@@ -3,644 +3,544 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AgendaCraft — Calendar to Executive Agenda Builder</title>
+  <title>AgendaCraft — Calendar Event to Executive Agenda Builder</title>
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React & ReactDOM (UMD Production Builds) -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel Standalone for In-Browser JSX Transpilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- jsPDF for Direct Client-Side PDF Generation -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
     @media print {
       .no-print { display: none !important; }
       body { background: white !important; }
-      .print-shadow-none { box-shadow: none !important; border: none !important; }
+      .print-clean { box-shadow: none !important; border: none !important; }
     }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-900 min-h-screen antialiased selection:bg-indigo-100 selection:text-indigo-900">
+<body class="bg-slate-50 text-slate-900 min-h-screen antialiased">
+  <div id="root"></div>
 
-  <!-- Toast Notification -->
-  <div id="toast" class="fixed bottom-6 right-6 z-50 hidden transform transition-all duration-300 translate-y-2 opacity-0">
-    <div class="bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2.5 text-sm font-medium border border-slate-700">
-      <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+  <script type="text/babel">
+    const { useState, useRef } = React;
+
+    // Clean inline SVG Icon components (zero external icon library issues)
+    const Icon = ({ children, className = 'w-4 h-4' }) => (
+      <svg
+        className={className}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {children}
       </svg>
-      <span id="toast-message">Action completed</span>
-    </div>
-  </div>
+    );
 
-  <!-- Top Navigation Bar -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 no-print">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-        </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h1 class="text-lg font-bold tracking-tight text-slate-900">AgendaCraft</h1>
-            <span class="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100">Offline Edition</span>
-          </div>
-          <p class="text-xs text-slate-500 hidden sm:block">Convert exported calendar events into structured, time-boxed meeting agendas</p>
-        </div>
-      </div>
+    const CalendarIcon = ({ className }) => (
+      <Icon className={className}>
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+        <line x1="16" y1="2" x2="16" y2="6" />
+        <line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+      </Icon>
+    );
 
-      <div class="flex items-center gap-2.5">
-        <button onclick="loadSampleEvent()" class="text-xs sm:text-sm font-medium text-slate-700 hover:text-indigo-600 bg-slate-100 hover:bg-indigo-50 px-3 py-2 rounded-lg transition-colors">
-          Load Sample Event
-        </button>
-        <button onclick="resetApp()" class="text-xs sm:text-sm font-medium text-slate-500 hover:text-slate-800 px-2.5 py-2 rounded-lg transition-colors">
-          Reset
-        </button>
-      </div>
-    </div>
-  </header>
+    const UploadIcon = ({ className }) => (
+      <Icon className={className}>
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="17 8 12 3 7 8" />
+        <line x1="12" y1="3" x2="12" y2="15" />
+      </Icon>
+    );
 
-  <!-- Main Workspace -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+    const FileTextIcon = ({ className }) => (
+      <Icon className={className}>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+        <polyline points="10 9 9 9 8 9" />
+      </Icon>
+    );
 
-      <!-- Left Column: Calendar Input & Controls -->
-      <div class="lg:col-span-4 space-y-6 no-print">
+    const ClockIcon = ({ className }) => (
+      <Icon className={className}>
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </Icon>
+    );
 
-        <!-- File Upload Card -->
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-          <h2 class="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-3">1. Import Calendar Event</h2>
+    const UsersIcon = ({ className }) => (
+      <Icon className={className}>
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </Icon>
+    );
 
-          <div id="drop-zone" class="border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50/40 rounded-xl p-6 text-center cursor-pointer transition-all group">
-            <input type="file" id="file-input" accept=".ics,.json,.csv,.txt" class="hidden" />
-            <div class="w-11 h-11 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3 group-hover:scale-105 transition-transform">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-              </svg>
-            </div>
-            <p class="text-sm font-medium text-slate-800">Drop calendar file here or <span class="text-indigo-600 underline">browse</span></p>
-            <p class="text-xs text-slate-500 mt-1">Supports <strong>.ics</strong> (Apple/Google/Outlook), <strong>.json</strong>, or <strong>.csv</strong></p>
-          </div>
+    const SparklesIcon = ({ className }) => (
+      <Icon className={className}>
+        <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+      </Icon>
+    );
 
-          <!-- Toggle Raw Paste -->
-          <div class="mt-4 pt-4 border-t border-slate-100">
-            <button onclick="togglePasteBox()" class="w-full flex items-center justify-between text-xs font-medium text-slate-600 hover:text-indigo-600 transition-colors">
-              <span>Or paste raw .ics / event notes</span>
-              <svg id="paste-chevron" class="w-4 h-4 transform transition-transform" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-            <div id="paste-container" class="hidden mt-3 space-y-2.5">
-              <textarea id="raw-paste-input" rows="5" placeholder="Paste BEGIN:VCALENDAR... or event description notes here..." class="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
-              <button onclick="parsePastedText()" class="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold py-2 rounded-lg transition-colors">
-                Parse & Generate Agenda
-              </button>
-            </div>
-          </div>
-        </div>
+    const PlusIcon = ({ className }) => (
+      <Icon className={className}>
+        <line x1="12" y1="5" x2="12" y2="19" />
+        <line x1="5" y1="12" x2="19" y2="12" />
+      </Icon>
+    );
 
-        <!-- Optional Gemini API Key Card -->
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-          <div class="flex items-center justify-between mb-2">
-            <h2 class="text-sm font-semibold text-slate-900 uppercase tracking-wider">2. Agenda Engine</h2>
-            <span id="engine-badge" class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Built-in Smart Structurer</span>
-          </div>
-          <p class="text-xs text-slate-500 leading-relaxed mb-3">
-            Works 100% offline automatically. Optionally add a Google Gemini API key (saved locally in your browser) for custom AI-tailored topic drafting.
-          </p>
-          <div class="flex gap-2">
-            <input type="password" id="gemini-api-key" placeholder="Optional: AIzaSy..." class="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-            <button onclick="saveApiKey()" class="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold px-3 py-2 rounded-lg transition-colors">
-              Save
-            </button>
-          </div>
-        </div>
+    const TrashIcon = ({ className }) => (
+      <Icon className={className}>
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      </Icon>
+    );
 
-        <!-- Time Balance Card -->
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-          <div class="flex items-center justify-between mb-3">
-            <h2 class="text-sm font-semibold text-slate-900 uppercase tracking-wider">Time Allocation</h2>
-            <button onclick="autoBalanceTimes()" class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md transition-colors">
-              Auto-Balance
-            </button>
-          </div>
+    const ArrowUpIcon = ({ className }) => (
+      <Icon className={className}>
+        <line x1="12" y1="19" x2="12" y2="5" />
+        <polyline points="5 12 12 5 19 12" />
+      </Icon>
+    );
 
-          <div class="flex items-baseline justify-between mb-2">
-            <div>
-              <span id="allocated-mins" class="text-2xl font-bold text-slate-900">60</span>
-              <span class="text-xs text-slate-500">min scheduled</span>
-            </div>
-            <div class="text-right">
-              <span class="text-xs text-slate-500">Target: </span>
-              <input type="number" id="target-duration-input" value="60" min="5" max="480" onchange="updateTargetDuration(this.value)" class="w-14 text-right text-xs font-semibold bg-slate-50 border border-slate-200 rounded px-1.5 py-1" />
-              <span class="text-xs text-slate-500">min</span>
-            </div>
-          </div>
+    const ArrowDownIcon = ({ className }) => (
+      <Icon className={className}>
+        <line x1="12" y1="5" x2="12" y2="19" />
+        <polyline points="19 12 12 19 5 12" />
+      </Icon>
+    );
 
-          <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-            <div id="time-progress-bar" class="h-full bg-emerald-500 transition-all duration-300" style="width: 100%"></div>
-          </div>
-          <p id="time-status-text" class="text-xs text-emerald-700 font-medium mt-2">Perfectly balanced to meeting length.</p>
-        </div>
+    const CopyIcon = ({ className }) => (
+      <Icon className={className}>
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </Icon>
+    );
 
-      </div>
+    const DownloadIcon = ({ className }) => (
+      <Icon className={className}>
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="12" y1="15" x2="12" y2="3" />
+      </Icon>
+    );
 
-      <!-- Right Column: Live Agenda Builder & Export Document -->
-      <div class="lg:col-span-8 space-y-5">
+    const CheckIcon = ({ className }) => (
+      <Icon className={className}>
+        <polyline points="20 6 9 17 4 12" />
+      </Icon>
+    );
 
-        <!-- Export Action Toolbar -->
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 flex flex-wrap items-center justify-between gap-3 no-print">
-          <div class="flex items-center gap-2">
-            <button onclick="regenerateAgenda()" id="regenerate-btn" class="inline-flex items-center gap-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg shadow-sm transition-colors">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Regenerate Outline
-            </button>
-            <button onclick="addAgendaItem()" class="inline-flex items-center gap-1.5 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 px-3 py-2 rounded-lg transition-colors">
-              + Add Topic
-            </button>
-          </div>
+    const RefreshIcon = ({ className }) => (
+      <Icon className={className}>
+        <polyline points="23 4 23 10 17 10" />
+        <polyline points="1 20 1 14 7 14" />
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+      </Icon>
+    );
 
-          <div class="flex flex-wrap items-center gap-2">
-            <button onclick="copyMarkdown()" class="text-xs font-medium text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors">
-              Copy Markdown
-            </button>
-            <button onclick="copyEmailText()" class="text-xs font-medium text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors">
-              Copy Email Text
-            </button>
-            <button onclick="downloadMarkdown()" class="text-xs font-medium text-slate-700 hover:text-slate-900 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-lg transition-colors">
-              Download .md
-            </button>
-            <button onclick="downloadPDF()" id="pdf-btn" class="inline-flex items-center gap-1.5 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-lg shadow-sm transition-colors">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              Download PDF
-            </button>
-          </div>
-        </div>
+    const ScaleIcon = ({ className }) => (
+      <Icon className={className}>
+        <path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+        <path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" />
+        <path d="M7 21h10" />
+        <path d="M12 3v18" />
+        <path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" />
+      </Icon>
+    );
 
-        <!-- Executive Agenda Document Sheet -->
-        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm print-shadow-none overflow-hidden">
-          <div class="h-2 bg-indigo-600"></div>
+    const MailIcon = ({ className }) => (
+      <Icon className={className}>
+        <rect x="2" y="4" width="20" height="16" rx="2" />
+        <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+      </Icon>
+    );
 
-          <div class="p-6 sm:p-8 space-y-6">
-            <!-- Simplified Agenda Header -->
-            <div class="space-y-4 pb-6 border-b border-slate-200">
-              <div>
-                <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1 no-print">Meeting Title</label>
-                <input type="text" id="meta-title" value="Q4 Product Roadmap & Resource Alignment" oninput="state.title = this.value" class="w-full text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight bg-transparent border-b border-transparent hover:border-slate-200 focus:border-indigo-500 focus:outline-none pb-1 transition-colors" />
-              </div>
+    const SAMPLE_ICS = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//AgendaCraft//Sample//EN',
+      'BEGIN:VEVENT',
+      'DTSTART:20261124T140000Z',
+      'DTEND:20261124T150000Z',
+      'SUMMARY:Customer Onboarding Redesign Kickoff',
+      'DESCRIPTION:Align product, design, and engineering on simplifying the self-serve onboarding flow to improve 7-day activation.\\n- Review current funnel drop-off data\\n- Evaluate simplified 3-step setup prototype\\n- Define Q4 engineering milestones and QA scope',
+      'ATTENDEE;CN="Elena Rostova":mailto:elena@example.com',
+      'ATTENDEE;CN="Marcus Vance":mailto:marcus@example.com',
+      'ATTENDEE;CN="Devon Brooks":mailto:devon@example.com',
+      'ATTENDEE;CN="Sora Takahashi":mailto:sora@example.com',
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\n');
 
-              <!-- Date & Time Row -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                  <span class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">Date</span>
-                  <input type="text" id="meta-date" value="Thursday, November 19, 2026" oninput="state.date = this.value" class="w-full text-sm font-medium text-slate-800 bg-transparent focus:outline-none" />
-                </div>
-                <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                  <span class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">Time</span>
-                  <input type="text" id="meta-time" value="10:00 AM – 11:00 AM EST (60 min)" oninput="state.time = this.value" class="w-full text-sm font-medium text-slate-800 bg-transparent focus:outline-none" />
-                </div>
-              </div>
-
-              <!-- Attendees -->
-              <div class="bg-slate-50 rounded-xl p-3.5 border border-slate-100">
-                <span class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Attendees</span>
-                <div id="attendees-list" class="flex flex-wrap items-center gap-1.5"></div>
-                <div class="mt-2 flex items-center gap-2 no-print">
-                  <input type="text" id="new-attendee-input" placeholder="Add attendee name or email and press Enter..." onkeydown="if(event.key==='Enter'){event.preventDefault();addAttendee();}" class="flex-1 text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                  <button onclick="addAttendee()" class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 px-2.5 py-1.5">Add</button>
-                </div>
-              </div>
-
-              <!-- Brief Meeting Objective / Purpose Statement -->
-              <div class="bg-indigo-50/50 rounded-xl p-3.5 border border-indigo-100/80">
-                <span class="block text-[11px] font-semibold uppercase tracking-wider text-indigo-600 mb-1">Meeting Objective</span>
-                <textarea id="meta-objective" rows="2" oninput="state.objective = this.value" class="w-full text-sm text-slate-700 bg-transparent focus:outline-none resize-none leading-relaxed">Finalize Q4 feature priorities, resolve cross-team engineering dependencies, and approve launch milestones before sprint kickoff.</textarea>
-              </div>
-            </div>
-
-            <!-- Agenda Outline Table -->
-            <div>
-              <div class="flex items-center justify-between mb-3">
-                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Meeting Outline</h3>
-                <span class="text-xs text-slate-400 no-print">Click any field to edit inline</span>
-              </div>
-
-              <div class="overflow-x-auto border border-slate-200 rounded-xl">
-                <table class="w-full text-left border-collapse">
-                  <thead>
-                    <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      <th class="py-3 px-4 w-1/3">Topic</th>
-                      <th class="py-3 px-4">Details</th>
-                      <th class="py-3 px-4 w-28 text-right">Time</th>
-                      <th class="py-3 px-2 w-16 text-center no-print"></th>
-                    </tr>
-                  </thead>
-                  <tbody id="agenda-tbody" class="divide-y divide-slate-200 text-sm">
-                    <!-- Rendered dynamically -->
-                  </tbody>
-                  <tfoot>
-                    <tr class="bg-slate-50 border-t border-slate-200 font-semibold text-slate-800 text-xs">
-                      <td colspan="2" class="py-3 px-4 text-right uppercase tracking-wider text-slate-500">Total Scheduled Time</td>
-                      <td class="py-3 px-4 text-right font-bold text-indigo-700" id="table-total-time">60 min</td>
-                      <td class="no-print"></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </main>
-
-  <script>
-    // Application State
-    const state = {
-      title: "Q4 Product Roadmap & Resource Alignment",
-      date: "Thursday, November 19, 2026",
-      time: "10:00 AM – 11:00 AM EST (60 min)",
+    const DEFAULT_AGENDA = {
+      title: 'Q4 Product Roadmap & Resource Alignment',
+      date: 'Thursday, November 19, 2026',
+      time: '10:00 AM – 11:00 AM EST (60 min)',
       durationMinutes: 60,
-      attendees: ["Maya Lin", "Jordan Vance", "Priya Patel", "Liam O'Connor"],
-      objective: "Finalize Q4 feature priorities, resolve cross-team engineering dependencies, and approve launch milestones before sprint kickoff.",
-      rawDescription: "",
+      attendees: ['Maya Lin', 'Jordan Vance', 'Priya Patel', "Liam O'Connor"],
+      objective:
+        'Finalize Q4 feature priorities, resolve cross-team engineering dependencies, and approve launch milestones before sprint kickoff.',
+      rawDescription: '',
       items: [
         {
-          topic: "Context & Q3 Performance Recap",
-          details: "Review key Q3 adoption metrics, customer feedback highlights, and baseline capacity.",
+          id: '1',
+          topic: 'Context & Q3 Performance Recap',
+          details: 'Review key Q3 adoption metrics, customer feedback highlights, and baseline capacity.',
           minutes: 10
         },
         {
-          topic: "Q4 Priority Initiatives & Scope",
-          details: "Walk through top 3 candidate deliverables, expected customer impact, and trade-offs.",
+          id: '2',
+          topic: 'Q4 Priority Initiatives & Scope',
+          details: 'Walk through top 3 candidate deliverables, expected customer impact, and trade-offs.',
           minutes: 20
         },
         {
-          topic: "Dependencies & Resource Allocation",
-          details: "Identify cross-functional bottlenecks, QA timelines, and engineering bandwidth.",
+          id: '3',
+          topic: 'Dependencies & Resource Allocation',
+          details: 'Identify cross-functional bottlenecks, QA timelines, and engineering bandwidth.',
           minutes: 20
         },
         {
-          topic: "Decisions, Action Items & Next Steps",
-          details: "Confirm final scope sign-off, assign owners, and set check-in cadence.",
+          id: '4',
+          topic: 'Decisions, Action Items & Next Steps',
+          details: 'Confirm final scope sign-off, assign owners, and set check-in cadence.',
           minutes: 10
         }
       ]
     };
 
-    // Initialize
-    document.addEventListener("DOMContentLoaded", () => {
-      const savedKey = localStorage.getItem("agendacraft_gemini_key");
-      if (savedKey) {
-        document.getElementById("gemini-api-key").value = savedKey;
-        updateEngineBadge(true);
-      }
-      setupDragAndDrop();
-      renderAll();
-    });
-
-    function showToast(msg) {
-      const toast = document.getElementById("toast");
-      const label = document.getElementById("toast-message");
-      label.textContent = msg;
-      toast.classList.remove("hidden");
-      requestAnimationFrame(() => {
-        toast.classList.remove("translate-y-2", "opacity-0");
-      });
-      clearTimeout(window._toastTimer);
-      window._toastTimer = setTimeout(() => {
-        toast.classList.add("translate-y-2", "opacity-0");
-        setTimeout(() => toast.classList.add("hidden"), 300);
-      }, 2800);
-    }
-
-    function saveApiKey() {
-      const key = document.getElementById("gemini-api-key").value.trim();
-      if (key) {
-        localStorage.setItem("agendacraft_gemini_key", key);
-        updateEngineBadge(true);
-        showToast("Gemini API key saved locally in browser");
-      } else {
-        localStorage.removeItem("agendacraft_gemini_key");
-        updateEngineBadge(false);
-        showToast("API key cleared — using offline structurer");
-      }
-    }
-
-    function updateEngineBadge(hasKey) {
-      const badge = document.getElementById("engine-badge");
-      if (hasKey) {
-        badge.textContent = "Gemini AI Enabled";
-        badge.className = "text-[11px] font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200";
-      } else {
-        badge.textContent = "Built-in Smart Structurer";
-        badge.className = "text-[11px] font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200";
-      }
-    }
-
-    function togglePasteBox() {
-      const box = document.getElementById("paste-container");
-      const chev = document.getElementById("paste-chevron");
-      box.classList.toggle("hidden");
-      chev.classList.toggle("rotate-180");
-    }
-
-    // Drag & Drop File Setup
-    function setupDragAndDrop() {
-      const dropZone = document.getElementById("drop-zone");
-      const fileInput = document.getElementById("file-input");
-
-      dropZone.addEventListener("click", () => fileInput.click());
-      dropZone.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        dropZone.classList.add("border-indigo-500", "bg-indigo-50/60");
-      });
-      dropZone.addEventListener("dragleave", () => {
-        dropZone.classList.remove("border-indigo-500", "bg-indigo-50/60");
-      });
-      dropZone.addEventListener("drop", (e) => {
-        e.preventDefault();
-        dropZone.classList.remove("border-indigo-500", "bg-indigo-50/60");
-        if (e.dataTransfer.files.length) {
-          handleFile(e.dataTransfer.files[0]);
+    function AgendaCraft() {
+      const [agenda, setAgenda] = useState(DEFAULT_AGENDA);
+      const [apiKey, setApiKey] = useState(() => {
+        try {
+          return localStorage.getItem('agendacraft_gemini_key') || '';
+        } catch (e) {
+          return '';
         }
       });
-      fileInput.addEventListener("change", (e) => {
-        if (e.target.files.length) {
-          handleFile(e.target.files[0]);
-        }
-      });
-    }
+      const [newAttendee, setNewAttendee] = useState('');
+      const [rawPaste, setRawPaste] = useState('');
+      const [showPaste, setShowPaste] = useState(false);
+      const [isGenerating, setIsGenerating] = useState(false);
+      const [isExportingPdf, setIsExportingPdf] = useState(false);
+      const [isDragging, setIsDragging] = useState(false);
+      const [toast, setToast] = useState('');
+      const fileInputRef = useRef(null);
 
-    function handleFile(file) {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const text = e.target.result;
-        await processCalendarContent(text, file.name);
+      const triggerToast = (message) => {
+        setToast(message);
+        setTimeout(() => setToast(''), 2800);
       };
-      reader.readAsText(file);
-    }
 
-    async function parsePastedText() {
-      const text = document.getElementById("raw-paste-input").value.trim();
-      if (!text) {
-        showToast("Please paste calendar event text first");
-        return;
-      }
-      await processCalendarContent(text, "pasted.txt");
-    }
-
-    // Calendar Parsers (.ics, .json, .csv, fallback text)
-    function parseICS(icsText) {
-      // Unfold folded lines per RFC 5545
-      const unfolded = icsText.replace(/
-?
-[ 	]/g, "");
-      const lines = unfolded.split(/
-?
-/);
-
-      let summary = "";
-      let description = "";
-      let dtStart = null;
-      let dtEnd = null;
-      let durationMins = null;
-      const attendees = [];
-
-      for (const line of lines) {
-        if (line.startsWith("SUMMARY")) {
-          summary = decodeICSValue(line.split(":").slice(1).join(":"));
-        } else if (line.startsWith("DESCRIPTION")) {
-          description = decodeICSValue(line.split(":").slice(1).join(":"));
-        } else if (line.startsWith("DTSTART")) {
-          const val = line.split(":").slice(1).join(":");
-          dtStart = parseICSDate(val);
-        } else if (line.startsWith("DTEND")) {
-          const val = line.split(":").slice(1).join(":");
-          dtEnd = parseICSDate(val);
-        } else if (line.startsWith("DURATION")) {
-          const val = line.split(":").slice(1).join(":");
-          const m = val.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
-          if (m) {
-            durationMins = (parseInt(m[1] || "0", 10) * 60) + parseInt(m[2] || "0", 10);
+      const handleSaveApiKey = (val) => {
+        setApiKey(val);
+        try {
+          if (val.trim()) {
+            localStorage.setItem('agendacraft_gemini_key', val.trim());
+          } else {
+            localStorage.removeItem('agendacraft_gemini_key');
           }
-        } else if (line.startsWith("ATTENDEE")) {
-          const cnMatch = line.match(/CN="?([^";:]+)"?/i);
-          const mailMatch = line.match(/mailto:([^\s;]+)/i);
-          const person = cnMatch ? cnMatch[1].trim() : (mailMatch ? mailMatch[1].trim() : "");
-          if (person && !attendees.includes(person)) {
-            attendees.push(person);
-          }
+        } catch (e) {
+          // Ignore storage restrictions if any
         }
-      }
-
-      if (dtStart && dtEnd && !durationMins) {
-        durationMins = Math.max(5, Math.round((dtEnd - dtStart) / 60000));
-      }
-      if (!durationMins) durationMins = 45;
-
-      let dateStr = state.date;
-      let timeStr = `${durationMins} min`;
-
-      if (dtStart) {
-        dateStr = dtStart.toLocaleDateString("en-US", {
-          weekday: "long",
-          year: "numeric",
-          month: "long",
-          day: "numeric"
-        });
-        const startFmt = dtStart.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-        if (dtEnd) {
-          const endFmt = dtEnd.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-          timeStr = `${startFmt} – ${endFmt} (${durationMins} min)`;
-        } else {
-          timeStr = `${startFmt} (${durationMins} min)`;
-        }
-      }
-
-      return {
-        title: summary || "Team Sync & Planning Session",
-        date: dateStr,
-        time: timeStr,
-        durationMinutes: durationMins,
-        attendees: attendees.length ? attendees : ["Team Members"],
-        rawDescription: description
       };
-    }
 
-    function decodeICSValue(str) {
-      return str
-        .replace(/\n/gi, "
-")
-        .replace(/\,/g, ",")
-        .replace(/\;/g, ";")
-        .replace(/\\/g, "\")
-        .trim();
-    }
+      // --- Calendar File Parsers ---
+      const decodeICSValue = (str) =>
+        str
+          .replace(/\\n/gi, '\n')
+          .replace(/\\,/g, ',')
+          .replace(/\\;/g, ';')
+          .replace(/\\\\/g, '\\')
+          .trim();
 
-    function parseICSDate(val) {
-      // Handles YYYYMMDDTHHMMSSZ or YYYYMMDDTHHMMSS or YYYYMMDD
-      const clean = val.trim();
-      const m = clean.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z)?)?$/);
-      if (!m) return null;
-      const year = parseInt(m[1], 10);
-      const month = parseInt(m[2], 10) - 1;
-      const day = parseInt(m[3], 10);
-      const hour = parseInt(m[4] || "9", 10);
-      const min = parseInt(m[5] || "0", 10);
-      const sec = parseInt(m[6] || "0", 10);
-      if (m[7] === "Z") {
-        return new Date(Date.UTC(year, month, day, hour, min, sec));
-      }
-      return new Date(year, month, day, hour, min, sec);
-    }
+      const parseICSDate = (val) => {
+        const clean = val.trim();
+        const match = clean.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})(Z)?)?$/);
+        if (!match) return null;
+        const [, y, m, d, hh = '09', mm = '00', ss = '00', z] = match;
+        if (z === 'Z') {
+          return new Date(Date.UTC(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss)));
+        }
+        return new Date(Number(y), Number(m) - 1, Number(d), Number(hh), Number(mm), Number(ss));
+      };
 
-    function parseJSONEvent(text) {
-      const data = JSON.parse(text);
-      const ev = Array.isArray(data) ? data[0] : (data.items ? data.items[0] : data);
-      const title = ev.summary || ev.title || ev.subject || "Team Meeting";
-      const description = ev.description || ev.purpose || ev.body || "";
-      const start = ev.start?.dateTime || ev.start || ev.startTime;
-      const end = ev.end?.dateTime || ev.end || ev.endTime;
+      const parseICS = (text) => {
+        const unfolded = text.replace(/\r?\n[ \t]/g, '');
+        const lines = unfolded.split(/\r?\n/);
+        let summary = '';
+        let description = '';
+        let dtStart = null;
+        let dtEnd = null;
+        let durationMins = null;
+        const attendees = [];
 
-      let durationMins = parseInt(ev.duration || ev.durationMinutes || 0, 10);
-      let dateStr = ev.date || state.date;
-      let timeStr = "";
-
-      if (start) {
-        const sDate = new Date(start);
-        if (!isNaN(sDate)) {
-          dateStr = sDate.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-          const sFmt = sDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-          if (end) {
-            const eDate = new Date(end);
-            if (!isNaN(eDate)) {
-              if (!durationMins) durationMins = Math.max(5, Math.round((eDate - sDate) / 60000));
-              const eFmt = eDate.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-              timeStr = `${sFmt} – ${eFmt} (${durationMins} min)`;
+        for (const line of lines) {
+          if (line.startsWith('SUMMARY')) {
+            summary = decodeICSValue(line.split(':').slice(1).join(':'));
+          } else if (line.startsWith('DESCRIPTION')) {
+            description = decodeICSValue(line.split(':').slice(1).join(':'));
+          } else if (line.startsWith('DTSTART')) {
+            dtStart = parseICSDate(line.split(':').slice(1).join(':'));
+          } else if (line.startsWith('DTEND')) {
+            dtEnd = parseICSDate(line.split(':').slice(1).join(':'));
+          } else if (line.startsWith('DURATION')) {
+            const val = line.split(':').slice(1).join(':');
+            const m = val.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+            if (m) {
+              durationMins = Number(m[1] || 0) * 60 + Number(m[2] || 0);
+            }
+          } else if (line.startsWith('ATTENDEE')) {
+            const cnMatch = line.match(/CN="?([^";:]+)"?/i);
+            const mailMatch = line.match(/mailto:([^\s;]+)/i);
+            const person = cnMatch ? cnMatch[1].trim() : mailMatch ? mailMatch[1].trim() : '';
+            if (person && !attendees.includes(person)) {
+              attendees.push(person);
             }
           }
-          if (!timeStr) {
-            durationMins = durationMins || 45;
-            timeStr = `${sFmt} (${durationMins} min)`;
+        }
+
+        if (dtStart && dtEnd && !durationMins) {
+          durationMins = Math.max(5, Math.round((dtEnd - dtStart) / 60000));
+        }
+        if (!durationMins) durationMins = 45;
+
+        let dateStr = agenda.date;
+        let timeStr = `${durationMins} min`;
+
+        if (dtStart) {
+          dateStr = dtStart.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+          const startFmt = dtStart.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+          if (dtEnd) {
+            const endFmt = dtEnd.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            timeStr = `${startFmt} – ${endFmt} (${durationMins} min)`;
+          } else {
+            timeStr = `${startFmt} (${durationMins} min)`;
           }
         }
-      }
-      if (!durationMins) durationMins = 45;
-      if (!timeStr) timeStr = `${durationMins} min`;
 
-      let attendees = [];
-      if (Array.isArray(ev.attendees)) {
-        attendees = ev.attendees.map(a => typeof a === "string" ? a : (a.displayName || a.name || a.email)).filter(Boolean);
-      } else if (typeof ev.attendees === "string") {
-        attendees = ev.attendees.split(/[,;]/).map(s => s.trim()).filter(Boolean);
-      }
-
-      return {
-        title,
-        date: dateStr,
-        time: timeStr,
-        durationMinutes: durationMins,
-        attendees: attendees.length ? attendees : ["Team Members"],
-        rawDescription: description
-      };
-    }
-
-    function parseCSVEvent(text) {
-      const lines = text.trim().split(/
-?
-/);
-      if (lines.length < 2) return null;
-      const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/^"|"$/g, ""));
-      const values = lines[1].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[1].split(",");
-      const row = {};
-      headers.forEach((h, i) => {
-        row[h] = (values[i] || "").replace(/^"|"$/g, "").trim();
-      });
-
-      const title = row.subject || row.title || row.summary || "Scheduled Meeting";
-      const dateStr = row["start date"] || row.date || state.date;
-      const startTime = row["start time"] || row.start || "";
-      const endTime = row["end time"] || row.end || "";
-      const durationMins = parseInt(row.duration || row.minutes || "45", 10) || 45;
-      const timeStr = startTime && endTime ? `${startTime} – ${endTime} (${durationMins} min)` : `${durationMins} min`;
-      const rawAttendees = row.attendees || row["required attendees"] || "";
-      const attendees = rawAttendees ? rawAttendees.split(/[;|]/).map(s => s.trim()).filter(Boolean) : ["Team Members"];
-      const description = row.description || row.purpose || row.notes || "";
-
-      return {
-        title,
-        date: dateStr,
-        time: timeStr,
-        durationMinutes: durationMins,
-        attendees,
-        rawDescription: description
-      };
-    }
-
-    async function processCalendarContent(text, filename) {
-      let parsed = null;
-      try {
-        if (text.includes("BEGIN:VCALENDAR") || filename.endsWith(".ics")) {
-          parsed = parseICS(text);
-        } else if (text.trim().startsWith("{") || text.trim().startsWith("[") || filename.endsWith(".json")) {
-          parsed = parseJSONEvent(text);
-        } else if (filename.endsWith(".csv") || (text.includes(",") && text.split("
-").length >= 2)) {
-          parsed = parseCSVEvent(text);
-        }
-      } catch (err) {
-        console.warn("Structured parse fallback:", err);
-      }
-
-      if (!parsed) {
-        parsed = {
-          title: filename.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ") || "Team Planning Meeting",
-          date: state.date,
-          time: "45 min",
-          durationMinutes: 45,
-          attendees: ["Team Members"],
-          rawDescription: text.trim()
+        return {
+          title: summary || 'Team Planning Session',
+          date: dateStr,
+          time: timeStr,
+          durationMinutes: durationMins,
+          attendees: attendees.length ? attendees : ['Team Members'],
+          rawDescription: description
         };
-      }
+      };
 
-      state.title = parsed.title;
-      state.date = parsed.date;
-      state.time = parsed.time;
-      state.durationMinutes = parsed.durationMinutes;
-      state.attendees = parsed.attendees;
-      state.rawDescription = parsed.rawDescription;
+      const parseJSONEvent = (text) => {
+        const data = JSON.parse(text);
+        const ev = Array.isArray(data) ? data[0] : data.items ? data.items[0] : data;
+        const title = ev.summary || ev.title || ev.subject || 'Team Meeting';
+        const description = ev.description || ev.purpose || ev.body || '';
+        const start = ev.start?.dateTime || ev.start || ev.startTime;
+        const end = ev.end?.dateTime || ev.end || ev.endTime;
 
-      await generateOutlineFromEvent();
-      renderAll();
-      showToast(`Imported "${state.title}"`);
-    }
+        let durationMins = Number(ev.duration || ev.durationMinutes || 0);
+        let dateStr = ev.date || agenda.date;
+        let timeStr = '';
 
-    // Generate Objective + Time-Boxed Outline (Gemini API if key exists, else smart offline structurer)
-    async function generateOutlineFromEvent() {
-      const apiKey = localStorage.getItem("agendacraft_gemini_key");
-      const btn = document.getElementById("regenerate-btn");
-      btn.disabled = true;
-      btn.classList.add("opacity-60");
+        if (start) {
+          const sDate = new Date(start);
+          if (!isNaN(sDate)) {
+            dateStr = sDate.toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            });
+            const sFmt = sDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            if (end) {
+              const eDate = new Date(end);
+              if (!isNaN(eDate)) {
+                if (!durationMins) durationMins = Math.max(5, Math.round((eDate - sDate) / 60000));
+                const eFmt = eDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                timeStr = `${sFmt} – ${eFmt} (${durationMins} min)`;
+              }
+            }
+            if (!timeStr) {
+              durationMins = durationMins || 45;
+              timeStr = `${sFmt} (${durationMins} min)`;
+            }
+          }
+        }
+        if (!durationMins) durationMins = 45;
+        if (!timeStr) timeStr = `${durationMins} min`;
 
-      if (apiKey) {
+        let attendees = [];
+        if (Array.isArray(ev.attendees)) {
+          attendees = ev.attendees
+            .map((a) => (typeof a === 'string' ? a : a.displayName || a.name || a.email))
+            .filter(Boolean);
+        } else if (typeof ev.attendees === 'string') {
+          attendees = ev.attendees.split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+        }
+
+        return {
+          title,
+          date: dateStr,
+          time: timeStr,
+          durationMinutes: durationMins,
+          attendees: attendees.length ? attendees : ['Team Members'],
+          rawDescription: description
+        };
+      };
+
+      const parseCSVEvent = (text) => {
+        const lines = text.trim().split(/\r?\n/);
+        if (lines.length < 2) return null;
+        const headers = lines[0].split(',').map((h) => h.trim().toLowerCase().replace(/^"|"$/g, ''));
+        const values = lines[1].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[1].split(',');
+        const row = {};
+        headers.forEach((h, i) => {
+          row[h] = (values[i] || '').replace(/^"|"$/g, '').trim();
+        });
+
+        const title = row.subject || row.title || row.summary || 'Scheduled Meeting';
+        const dateStr = row['start date'] || row.date || agenda.date;
+        const startTime = row['start time'] || row.start || '';
+        const endTime = row['end time'] || row.end || '';
+        const durationMins = Number(row.duration || row.minutes || 45) || 45;
+        const timeStr = startTime && endTime ? `${startTime} – ${endTime} (${durationMins} min)` : `${durationMins} min`;
+        const rawAttendees = row.attendees || row['required attendees'] || '';
+        const attendees = rawAttendees
+          ? rawAttendees.split(/[;|]/).map((s) => s.trim()).filter(Boolean)
+          : ['Team Members'];
+        const description = row.description || row.purpose || row.notes || '';
+
+        return {
+          title,
+          date: dateStr,
+          time: timeStr,
+          durationMinutes: durationMins,
+          attendees,
+          rawDescription: description
+        };
+      };
+
+      // --- AI & Deterministic Agenda Generator ---
+      const buildFallbackOutline = (parsed) => {
+        const desc = (parsed.rawDescription || '').trim();
+        const total = Math.max(10, parsed.durationMinutes || 45);
+
+        const extractedLines = desc
+          .split(/\r?\n|[•\-*]\s+/)
+          .map((s) => s.replace(/^[\-\*\d\.\)]+\s*/, '').trim())
+          .filter((s) => s.length > 4 && s.length < 140);
+
+        const firstSentence = desc.split(/[.!?\n]/)[0]?.trim();
+        const objective =
+          firstSentence && firstSentence.length > 10
+            ? firstSentence.endsWith('.')
+              ? firstSentence
+              : `${firstSentence}.`
+            : `Align on ${parsed.title} objectives, resolve open questions, and confirm actionable next steps.`;
+
+        if (extractedLines.length >= 2) {
+          const topics = extractedLines.slice(0, 5);
+          const rawItems = [
+            ...topics.map((line, idx) => ({
+              id: String(idx + 1),
+              topic: line.length > 52 ? `${line.slice(0, 49)}...` : line,
+              details: `Review context, surface blockers, and align on decisions for ${line.toLowerCase()}.`,
+              minutes: 10
+            })),
+            {
+              id: String(topics.length + 1),
+              topic: 'Action Items & Next Steps',
+              details: 'Confirm owners, deadlines, and follow-up milestones.',
+              minutes: 5
+            }
+          ];
+
+          const currentSum = rawItems.reduce((acc, it) => acc + it.minutes, 0);
+          let running = 0;
+          const balanced = rawItems.map((it, i) => {
+            if (i === rawItems.length - 1) {
+              return { ...it, minutes: Math.max(1, total - running) };
+            }
+            const scaled = Math.max(1, Math.round((it.minutes / currentSum) * total));
+            running += scaled;
+            return { ...it, minutes: scaled };
+          });
+
+          return { objective, items: balanced };
+        }
+
+        const m1 = Math.max(5, Math.round(total * 0.15));
+        const m2 = Math.max(10, Math.round(total * 0.45));
+        const m3 = Math.max(5, Math.round(total * 0.25));
+        const m4 = Math.max(5, total - (m1 + m2 + m3));
+
+        return {
+          objective,
+          items: [
+            {
+              id: '1',
+              topic: 'Opening & Context Alignment',
+              details: `Review meeting objective for ${parsed.title} and confirm key priorities.`,
+              minutes: m1
+            },
+            {
+              id: '2',
+              topic: 'Core Discussion & Deep Dive',
+              details: desc || 'Examine primary proposals, trade-offs, and cross-team dependencies.',
+              minutes: m2
+            },
+            {
+              id: '3',
+              topic: 'Open Questions & Risk Review',
+              details: 'Address blockers, resource constraints, and alignment gaps.',
+              minutes: m3
+            },
+            {
+              id: '4',
+              topic: 'Decisions & Next Steps',
+              details: 'Summarize agreed outcomes, assign action owners, and set target dates.',
+              minutes: m4
+            }
+          ]
+        };
+      };
+
+      const generateWithGemini = async (parsed) => {
+        const activeKey = apiKey.trim();
+        if (!activeKey) {
+          return buildFallbackOutline(parsed);
+        }
+
         try {
           const prompt = `Create a structured meeting agenda based on this calendar event:
-Title: ${state.title}
-Duration: ${state.durationMinutes} minutes
-Attendees: ${state.attendees.join(", ")}
-Event Purpose / Notes: ${state.rawDescription || "General alignment and decision-making"}
+Title: ${parsed.title}
+Duration: ${parsed.durationMinutes} minutes
+Attendees: ${parsed.attendees.join(', ')}
+Event Purpose / Notes: ${parsed.rawDescription || 'General alignment and decision-making'}
 
-Return ONLY valid JSON matching this exact structure:
+Return ONLY valid JSON matching this exact schema:
 {
-  "objective": "One concise, clear sentence stating the meeting purpose/goal.",
+  "objective": "One concise sentence stating the meeting purpose/goal.",
   "items": [
     {
       "topic": "Clear agenda topic title",
@@ -649,527 +549,805 @@ Return ONLY valid JSON matching this exact structure:
     }
   ]
 }
-Ensure the sum of "minutes" across all items equals exactly ${state.durationMinutes}. Do not include a facilitator field.`;
+Ensure the sum of "minutes" equals exactly ${parsed.durationMinutes}. Do not include a facilitator field.`;
 
-          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: { responseMimeType: "application/json" }
-            })
-          });
-
-          if (resp.ok) {
-            const data = await resp.json();
-            const rawJson = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (rawJson) {
-              const result = JSON.parse(rawJson);
-              if (result.objective) state.objective = result.objective;
-              if (Array.isArray(result.items) && result.items.length) {
-                state.items = result.items.map(it => ({
-                  topic: it.topic || "Discussion Item",
-                  details: it.details || "",
-                  minutes: Math.max(1, parseInt(it.minutes, 10) || 10)
-                }));
-                btn.disabled = false;
-                btn.classList.remove("opacity-60");
-                return;
-              }
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(activeKey)}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { responseMimeType: 'application/json' }
+              })
             }
+          );
+
+          if (!response.ok) throw new Error('Gemini API request failed');
+          const data = await response.json();
+          const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!rawText) throw new Error('Empty AI response');
+
+          const result = JSON.parse(rawText);
+          if (Array.isArray(result.items) && result.items.length > 0) {
+            return {
+              objective: result.objective || `Align on ${parsed.title} goals and next steps.`,
+              items: result.items.map((it, idx) => ({
+                id: String(Date.now() + idx),
+                topic: it.topic || 'Agenda Topic',
+                details: it.details || '',
+                minutes: Math.max(1, Number(it.minutes) || 10)
+              }))
+            };
           }
         } catch (err) {
-          console.warn("Gemini API call failed, falling back to offline structurer:", err);
+          console.warn('Using fallback agenda structurer:', err);
         }
-      }
 
-      // Deterministic Offline Smart Structurer
-      buildOfflineAgenda();
-      btn.disabled = false;
-      btn.classList.remove("opacity-60");
-    }
+        return buildFallbackOutline(parsed);
+      };
 
-    function buildOfflineAgenda() {
-      const desc = (state.rawDescription || "").trim();
-      const total = Math.max(10, state.durationMinutes || 45);
+      const processCalendarInput = async (text, filename = 'event.ics') => {
+        if (!text || !text.trim()) {
+          triggerToast('Please provide calendar event text or a file');
+          return;
+        }
+        setIsGenerating(true);
+        let parsed = null;
 
-      // Extract bullet points or sentences from description if present
-      const extractedLines = desc
-        .split(/
-?
-|[•\-*]\s+/)
-        .map(s => s.replace(/^[\-\*\d\.\)]+\s*/, "").trim())
-        .filter(s => s.length > 4 && s.length < 140);
+        try {
+          if (text.includes('BEGIN:VCALENDAR') || filename.endsWith('.ics')) {
+            parsed = parseICS(text);
+          } else if (text.trim().startsWith('{') || text.trim().startsWith('[') || filename.endsWith('.json')) {
+            parsed = parseJSONEvent(text);
+          } else if (filename.endsWith('.csv') || (text.includes(',') && text.split('\n').length >= 2)) {
+            parsed = parseCSVEvent(text);
+          }
+        } catch (err) {
+          console.warn('Fallback text parse:', err);
+        }
 
-      if (desc) {
-        const firstSentence = desc.split(/[.!?
-]/)[0].trim();
-        state.objective = firstSentence.length > 10
-          ? (firstSentence.endsWith(".") ? firstSentence : firstSentence + ".")
-          : `Align on ${state.title} goals, review key updates, and confirm next steps.`;
-      } else {
-        state.objective = `Align on ${state.title} objectives, resolve open questions, and agree on actionable next steps.`;
-      }
+        if (!parsed) {
+          parsed = {
+            title: filename.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') || 'Team Planning Meeting',
+            date: agenda.date,
+            time: '45 min',
+            durationMinutes: 45,
+            attendees: ['Team Members'],
+            rawDescription: text.trim()
+          };
+        }
 
-      if (extractedLines.length >= 2) {
-        const topics = extractedLines.slice(0, 5);
-        const items = topics.map(line => ({
-          topic: line.length > 52 ? line.slice(0, 49) + "..." : line,
-          details: `Review context, surface blockers, and align on decisions for ${line.toLowerCase()}.`,
-          minutes: 10
+        const generated = await generateWithGemini(parsed);
+        setAgenda({
+          ...parsed,
+          objective: generated.objective,
+          items: generated.items
+        });
+        setIsGenerating(false);
+        triggerToast(`Generated agenda for "${parsed.title}"`);
+      };
+
+      const handleFileUpload = (file) => {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => processCalendarInput(e.target.result, file.name);
+        reader.readAsText(file);
+      };
+
+      const handleRegenerate = async () => {
+        setIsGenerating(true);
+        const generated = await generateWithGemini(agenda);
+        setAgenda((prev) => ({
+          ...prev,
+          objective: generated.objective,
+          items: generated.items
         }));
-        items.push({
-          topic: "Action Items & Next Steps",
-          details: "Confirm owners, deadlines, and follow-up milestones.",
-          minutes: 5
-        });
-        state.items = items;
-        autoBalanceTimes(true);
-      } else {
-        state.items = [
-          {
-            topic: "Opening & Context Alignment",
-            details: `Review meeting objective for ${state.title} and confirm key priorities.`,
-            minutes: Math.max(5, Math.round(total * 0.15))
-          },
-          {
-            topic: "Core Discussion & Deep Dive",
-            details: desc || "Examine primary proposals, trade-offs, and cross-team dependencies.",
-            minutes: Math.max(10, Math.round(total * 0.45))
-          },
-          {
-            topic: "Open Questions & Risk Review",
-            details: "Address blockers, resource constraints, and alignment gaps.",
-            minutes: Math.max(5, Math.round(total * 0.25))
-          },
-          {
-            topic: "Decisions & Next Steps",
-            details: "Summarize agreed outcomes, assign action owners, and set target dates.",
-            minutes: Math.max(5, total - (Math.max(5, Math.round(total * 0.15)) + Math.max(10, Math.round(total * 0.45)) + Math.max(5, Math.round(total * 0.25))))
-          }
-        ];
-      }
-    }
+        setIsGenerating(false);
+        triggerToast('Agenda outline regenerated');
+      };
 
-    async function regenerateAgenda() {
-      await generateOutlineFromEvent();
-      renderAll();
-      showToast("Agenda outline regenerated");
-    }
+      // --- Editing & Time Balancing ---
+      const totalScheduledMinutes = agenda.items.reduce((sum, item) => sum + (Number(item.minutes) || 0), 0);
+      const timeDiff = totalScheduledMinutes - agenda.durationMinutes;
 
-    function loadSampleEvent() {
-      const sampleICS = `BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//AgendaCraft//Sample//EN
-BEGIN:VEVENT
-DTSTART:20261124T140000Z
-DTEND:20261124T150000Z
-SUMMARY:Customer Onboarding Redesign Kickoff
-DESCRIPTION:Align product, design, and engineering on simplifying the self-serve onboarding flow to improve 7-day activation.\n- Review current funnel drop-off data\n- Evaluate simplified 3-step setup prototype\n- Define Q4 engineering milestones and QA scope
-ATTENDEE;CN="Elena Rostova":mailto:elena@example.com
-ATTENDEE;CN="Marcus Vance":mailto:marcus@example.com
-ATTENDEE;CN="Devon Brooks":mailto:devon@example.com
-ATTENDEE;CN="Sora Takahashi":mailto:sora@example.com
-END:VEVENT
-END:VCALENDAR`;
-      processCalendarContent(sampleICS, "onboarding-kickoff.ics");
-    }
+      const autoBalanceTimes = () => {
+        const target = agenda.durationMinutes;
+        if (!agenda.items.length) return;
 
-    function resetApp() {
-      state.title = "Team Strategy & Alignment Sync";
-      state.date = "Wednesday, November 25, 2026";
-      state.time = "2:00 PM – 2:45 PM EST (45 min)";
-      state.durationMinutes = 45;
-      state.attendees = ["Alex Morgan", "Taylor Kim"];
-      state.objective = "Review current priorities, resolve open blockers, and confirm weekly deliverables.";
-      state.rawDescription = "";
-      state.items = [
-        { topic: "Status & Priority Check-in", details: "Share quick progress updates and highlight key wins.", minutes: 15 },
-        { topic: "Blocker Resolution & Decisions", details: "Discuss open dependencies and make necessary trade-offs.", minutes: 20 },
-        { topic: "Action Items & Wrap-up", details: "Confirm owners and target completion dates.", minutes: 10 }
-      ];
-      renderAll();
-      showToast("Workspace reset");
-    }
-
-    // Rendering & Editing
-    function renderAll() {
-      document.getElementById("meta-title").value = state.title;
-      document.getElementById("meta-date").value = state.date;
-      document.getElementById("meta-time").value = state.time;
-      document.getElementById("meta-objective").value = state.objective;
-      document.getElementById("target-duration-input").value = state.durationMinutes;
-
-      renderAttendees();
-      renderAgendaTable();
-      updateTimeStats();
-    }
-
-    function renderAttendees() {
-      const container = document.getElementById("attendees-list");
-      container.innerHTML = "";
-      state.attendees.forEach((person, idx) => {
-        const chip = document.createElement("span");
-        chip.className = "inline-flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-medium px-2.5 py-1 rounded-full shadow-2xs";
-        chip.innerHTML = `
-          <span>${escapeHTML(person)}</span>
-          <button onclick="removeAttendee(${idx})" class="text-slate-400 hover:text-rose-500 no-print" title="Remove">×</button>
-        `;
-        container.appendChild(chip);
-      });
-    }
-
-    function addAttendee() {
-      const input = document.getElementById("new-attendee-input");
-      const val = input.value.trim();
-      if (val) {
-        state.attendees.push(val);
-        input.value = "";
-        renderAttendees();
-      }
-    }
-
-    function removeAttendee(index) {
-      state.attendees.splice(index, 1);
-      renderAttendees();
-    }
-
-    function renderAgendaTable() {
-      const tbody = document.getElementById("agenda-tbody");
-      tbody.innerHTML = "";
-
-      state.items.forEach((item, idx) => {
-        const tr = document.createElement("tr");
-        tr.className = "hover:bg-slate-50/70 transition-colors group align-top";
-        tr.innerHTML = `
-          <td class="py-3 px-4">
-            <input type="text" value="${escapeAttr(item.topic)}" oninput="updateItem(${idx}, 'topic', this.value)"
-              class="w-full font-semibold text-slate-900 bg-transparent border-b border-transparent focus:border-indigo-500 focus:outline-none pb-0.5" />
-          </td>
-          <td class="py-3 px-4">
-            <textarea rows="2" oninput="updateItem(${idx}, 'details', this.value)"
-              class="w-full text-slate-600 bg-transparent border-b border-transparent focus:border-indigo-500 focus:outline-none resize-none leading-snug">${escapeHTML(item.details)}</textarea>
-          </td>
-          <td class="py-3 px-4 text-right">
-            <div class="inline-flex items-center justify-end gap-1">
-              <input type="number" min="1" max="300" value="${item.minutes}" oninput="updateItem(${idx}, 'minutes', parseInt(this.value, 10) || 0)"
-                class="w-14 text-right font-semibold text-indigo-700 bg-indigo-50/70 border border-indigo-100 rounded-md px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              <span class="text-xs text-slate-500">min</span>
-            </div>
-          </td>
-          <td class="py-3 px-2 text-center no-print">
-            <div class="flex items-center justify-center gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
-              <button onclick="moveItem(${idx}, -1)" class="p-1 text-slate-500 hover:text-slate-900" title="Move up">↑</button>
-              <button onclick="moveItem(${idx}, 1)" class="p-1 text-slate-500 hover:text-slate-900" title="Move down">↓</button>
-              <button onclick="deleteItem(${idx})" class="p-1 text-slate-400 hover:text-rose-600" title="Delete">✕</button>
-            </div>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function updateItem(idx, field, value) {
-      state.items[idx][field] = value;
-      if (field === "minutes") {
-        updateTimeStats();
-      }
-    }
-
-    function addAgendaItem() {
-      state.items.push({
-        topic: "New Discussion Topic",
-        details: "Key talking points, context, and expected outcome.",
-        minutes: 10
-      });
-      renderAgendaTable();
-      updateTimeStats();
-    }
-
-    function deleteItem(idx) {
-      if (state.items.length <= 1) {
-        showToast("Agenda must keep at least one topic");
-        return;
-      }
-      state.items.splice(idx, 1);
-      renderAgendaTable();
-      updateTimeStats();
-    }
-
-    function moveItem(idx, dir) {
-      const target = idx + dir;
-      if (target < 0 || target >= state.items.length) return;
-      const temp = state.items[idx];
-      state.items[idx] = state.items[target];
-      state.items[target] = temp;
-      renderAgendaTable();
-    }
-
-    function updateTargetDuration(val) {
-      state.durationMinutes = Math.max(5, parseInt(val, 10) || 45);
-      updateTimeStats();
-    }
-
-    function autoBalanceTimes(silent = false) {
-      const target = state.durationMinutes;
-      const currentTotal = state.items.reduce((acc, it) => acc + (it.minutes || 0), 0);
-      if (!state.items.length) return;
-
-      if (currentTotal === 0) {
-        const even = Math.floor(target / state.items.length);
-        state.items.forEach((it, i) => {
-          it.minutes = i === state.items.length - 1 ? target - even * (state.items.length - 1) : even;
-        });
-      } else {
-        let running = 0;
-        state.items.forEach((it, i) => {
-          if (i === state.items.length - 1) {
-            it.minutes = Math.max(1, target - running);
-          } else {
-            const scaled = Math.max(1, Math.round((it.minutes / currentTotal) * target));
-            it.minutes = scaled;
+        if (totalScheduledMinutes === 0) {
+          const even = Math.floor(target / agenda.items.length);
+          setAgenda((prev) => ({
+            ...prev,
+            items: prev.items.map((it, i) => ({
+              ...it,
+              minutes: i === prev.items.length - 1 ? target - even * (prev.items.length - 1) : even
+            }))
+          }));
+        } else {
+          let running = 0;
+          const balanced = agenda.items.map((it, i) => {
+            if (i === agenda.items.length - 1) {
+              return { ...it, minutes: Math.max(1, target - running) };
+            }
+            const scaled = Math.max(1, Math.round((it.minutes / totalScheduledMinutes) * target));
             running += scaled;
-          }
-        });
-      }
+            return { ...it, minutes: scaled };
+          });
+          setAgenda((prev) => ({ ...prev, items: balanced }));
+        }
+        triggerToast(`Balanced agenda to ${target} minutes`);
+      };
 
-      renderAgendaTable();
-      updateTimeStats();
-      if (!silent) showToast(`Balanced items to ${target} minutes`);
-    }
+      const updateItem = (id, field, value) => {
+        setAgenda((prev) => ({
+          ...prev,
+          items: prev.items.map((it) => (it.id === id ? { ...it, [field]: value } : it))
+        }));
+      };
 
-    function updateTimeStats() {
-      const total = state.items.reduce((sum, it) => sum + (Number(it.minutes) || 0), 0);
-      const target = state.durationMinutes;
-      const diff = total - target;
+      const addItem = () => {
+        setAgenda((prev) => ({
+          ...prev,
+          items: [
+            ...prev.items,
+            {
+              id: String(Date.now()),
+              topic: 'New Discussion Topic',
+              details: 'Key talking points, context, and expected outcome.',
+              minutes: 10
+            }
+          ]
+        }));
+      };
 
-      document.getElementById("allocated-mins").textContent = total;
-      document.getElementById("table-total-time").textContent = `${total} min`;
+      const deleteItem = (id) => {
+        if (agenda.items.length <= 1) {
+          triggerToast('Agenda must keep at least one topic');
+          return;
+        }
+        setAgenda((prev) => ({
+          ...prev,
+          items: prev.items.filter((it) => it.id !== id)
+        }));
+      };
 
-      const bar = document.getElementById("time-progress-bar");
-      const status = document.getElementById("time-status-text");
-      const pct = Math.min(100, Math.round((total / Math.max(1, target)) * 100));
-      bar.style.width = `${pct}%`;
+      const moveItem = (index, direction) => {
+        const targetIdx = index + direction;
+        if (targetIdx < 0 || targetIdx >= agenda.items.length) return;
+        const copy = [...agenda.items];
+        [copy[index], copy[targetIdx]] = [copy[targetIdx], copy[index]];
+        setAgenda((prev) => ({ ...prev, items: copy }));
+      };
 
-      if (diff === 0) {
-        bar.className = "h-full bg-emerald-500 transition-all duration-300";
-        status.className = "text-xs text-emerald-700 font-medium mt-2";
-        status.textContent = "Perfectly balanced to meeting length.";
-      } else if (diff > 0) {
-        bar.className = "h-full bg-amber-500 transition-all duration-300";
-        status.className = "text-xs text-amber-700 font-medium mt-2";
-        status.textContent = `${diff} min over scheduled meeting time.`;
-      } else {
-        bar.className = "h-full bg-indigo-500 transition-all duration-300";
-        status.className = "text-xs text-indigo-700 font-medium mt-2";
-        status.textContent = `${Math.abs(diff)} min unallocated buffer remaining.`;
-      }
-    }
+      const addAttendee = () => {
+        const val = newAttendee.trim();
+        if (!val) return;
+        setAgenda((prev) => ({ ...prev, attendees: [...prev.attendees, val] }));
+        setNewAttendee('');
+      };
 
-    // Export Functions
-    function buildMarkdownString() {
-      const attendeesStr = state.attendees.join(", ");
-      const rows = state.items
-        .map(it => `| ${it.topic.replace(/\|/g, "\|")} | ${it.details.replace(/\|/g, "\|").replace(/
-/g, " ")} | ${it.minutes} min |`)
-        .join("
-");
-      const total = state.items.reduce((sum, it) => sum + (Number(it.minutes) || 0), 0);
+      const removeAttendee = (idx) => {
+        setAgenda((prev) => ({
+          ...prev,
+          attendees: prev.attendees.filter((_, i) => i !== idx)
+        }));
+      };
 
-      return `# ${state.title}
+      // --- Exports (Markdown, Email, PDF via jsPDF) ---
+      const buildMarkdown = () => {
+        const rows = agenda.items
+          .map(
+            (it) =>
+              `| ${it.topic.replace(/\|/g, '\\|')} | ${it.details.replace(/\|/g, '\\|').replace(/\n/g, ' ')} | ${it.minutes} min |`
+          )
+          .join('\n');
 
-- **Date:** ${state.date}
-- **Time:** ${state.time}
-- **Attendees:** ${attendeesStr}
-- **Objective:** ${state.objective}
+        return `# ${agenda.title}
+
+- **Date:** ${agenda.date}
+- **Time:** ${agenda.time}
+- **Attendees:** ${agenda.attendees.join(', ')}
+- **Objective:** ${agenda.objective}
 
 ## Meeting Outline
 
 | Topic | Details | Time |
 | :--- | :--- | :---: |
 ${rows}
-| **Total** | | **${total} min** |
+| **Total** | | **${totalScheduledMinutes} min** |
 `;
-    }
+      };
 
-    function copyMarkdown() {
-      navigator.clipboard.writeText(buildMarkdownString());
-      showToast("Markdown agenda copied to clipboard");
-    }
+      const handleCopyMarkdown = () => {
+        navigator.clipboard.writeText(buildMarkdown());
+        triggerToast('Markdown agenda copied');
+      };
 
-    function copyEmailText() {
-      const lines = [
-        `MEETING AGENDA: ${state.title}`,
-        `Date: ${state.date}`,
-        `Time: ${state.time}`,
-        `Attendees: ${state.attendees.join(", ")}`,
-        `Objective: ${state.objective}`,
-        ``,
-        `OUTLINE:`,
-        ...state.items.map((it, i) => `${i + 1}. ${it.topic} (${it.minutes} min)
-   - ${it.details}`)
-      ];
-      navigator.clipboard.writeText(lines.join("
-"));
-      showToast("Plain-text email agenda copied");
-    }
-
-    function downloadMarkdown() {
-      const blob = new Blob([buildMarkdownString()], { type: "text/markdown;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${slugify(state.title)}-agenda.md`;
-      a.click();
-      URL.revokeObjectURL(url);
-      showToast("Markdown file downloaded");
-    }
-
-    function downloadPDF() {
-      const btn = document.getElementById("pdf-btn");
-      if (!window.jspdf || !window.jspdf.jsPDF) {
-        window.print();
-        return;
-      }
-
-      btn.disabled = true;
-      try {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ unit: "pt", format: "letter" });
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 48;
-        const contentWidth = pageWidth - margin * 2;
-        let y = 54;
-
-        const checkPageBreak = (needed) => {
-          if (y + needed > pageHeight - 48) {
-            doc.addPage();
-            y = 54;
-          }
-        };
-
-        // Top Accent Rule
-        doc.setFillColor(79, 70, 229);
-        doc.rect(margin, y - 18, 42, 4, "F");
-
-        // Title
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(20);
-        doc.setTextColor(15, 23, 42);
-        const titleLines = doc.splitTextToSize(state.title, contentWidth);
-        doc.text(titleLines, margin, y + 6);
-        y += titleLines.length * 24 + 12;
-
-        // Metadata Block
-        doc.setFontSize(10);
-        const metaRows = [
-          ["Date:", state.date],
-          ["Time:", state.time],
-          ["Attendees:", state.attendees.join(", ")],
-          ["Objective:", state.objective]
+      const handleCopyEmail = () => {
+        const lines = [
+          `MEETING AGENDA: ${agenda.title}`,
+          `Date: ${agenda.date}`,
+          `Time: ${agenda.time}`,
+          `Attendees: ${agenda.attendees.join(', ')}`,
+          `Objective: ${agenda.objective}`,
+          '',
+          'OUTLINE:',
+          ...agenda.items.map((it, i) => `${i + 1}. ${it.topic} (${it.minutes} min)\n   - ${it.details}`)
         ];
+        navigator.clipboard.writeText(lines.join('\n'));
+        triggerToast('Email text copied');
+      };
 
-        metaRows.forEach(([label, val]) => {
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(71, 85, 105);
-          doc.text(label, margin, y);
+      const handleDownloadMarkdown = () => {
+        const blob = new Blob([buildMarkdown()], { type: 'text/markdown;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${agenda.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-agenda.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+        triggerToast('Markdown downloaded');
+      };
 
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(30, 41, 59);
-          const wrapped = doc.splitTextToSize(val || "—", contentWidth - 72);
-          doc.text(wrapped, margin + 72, y);
-          y += wrapped.length * 14 + 6;
-        });
+      const handleDownloadPDF = () => {
+        setIsExportingPdf(true);
+        try {
+          if (!window.jspdf || !window.jspdf.jsPDF) {
+            window.print();
+            return;
+          }
 
-        y += 10;
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const pageHeight = doc.internal.pageSize.getHeight();
+          const margin = 48;
+          const contentWidth = pageWidth - margin * 2;
+          let y = 54;
 
-        // Table Header
-        const colTopicW = 165;
-        const colTimeW = 60;
-        const colDetailsW = contentWidth - colTopicW - colTimeW;
+          const checkPageBreak = (needed) => {
+            if (y + needed > pageHeight - 48) {
+              doc.addPage();
+              y = 54;
+            }
+          };
 
-        doc.setFillColor(241, 245, 249);
-        doc.rect(margin, y, contentWidth, 24, "F");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.setTextColor(71, 85, 105);
-        doc.text("TOPIC", margin + 8, y + 15);
-        doc.text("DETAILS", margin + colTopicW + 8, y + 15);
-        doc.text("TIME", margin + contentWidth - 8, y + 15, { align: "right" });
-        y += 24;
+          doc.setFillColor(79, 70, 229);
+          doc.rect(margin, y - 18, 42, 4, 'F');
 
-        // Table Rows
-        state.items.forEach((item) => {
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(10);
-          const topicLines = doc.splitTextToSize(item.topic, colTopicW - 14);
-
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(9.5);
-          const detailLines = doc.splitTextToSize(item.details, colDetailsW - 14);
-
-          const rowHeight = Math.max(topicLines.length, detailLines.length) * 13 + 16;
-          checkPageBreak(rowHeight);
-
-          doc.setDrawColor(226, 232, 240);
-          doc.line(margin, y + rowHeight, margin + contentWidth, y + rowHeight);
-
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(10);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(20);
           doc.setTextColor(15, 23, 42);
-          doc.text(topicLines, margin + 8, y + 14);
+          const titleLines = doc.splitTextToSize(agenda.title, contentWidth);
+          doc.text(titleLines, margin, y + 6);
+          y += titleLines.length * 24 + 12;
 
-          doc.setFont("helvetica", "normal");
+          doc.setFontSize(10);
+          const metaRows = [
+            ['Date:', agenda.date],
+            ['Time:', agenda.time],
+            ['Attendees:', agenda.attendees.join(', ')],
+            ['Objective:', agenda.objective]
+          ];
+
+          metaRows.forEach(([label, val]) => {
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(71, 85, 105);
+            doc.text(label, margin, y);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(30, 41, 59);
+            const wrapped = doc.splitTextToSize(val || '—', contentWidth - 72);
+            doc.text(wrapped, margin + 72, y);
+            y += wrapped.length * 14 + 6;
+          });
+
+          y += 10;
+
+          const colTopicW = 165;
+          const colTimeW = 60;
+          const colDetailsW = contentWidth - colTopicW - colTimeW;
+
+          doc.setFillColor(241, 245, 249);
+          doc.rect(margin, y, contentWidth, 24, 'F');
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9);
+          doc.setTextColor(71, 85, 105);
+          doc.text('TOPIC', margin + 8, y + 15);
+          doc.text('DETAILS', margin + colTopicW + 8, y + 15);
+          doc.text('TIME', margin + contentWidth - 8, y + 15, { align: 'right' });
+          y += 24;
+
+          agenda.items.forEach((item) => {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            const topicLines = doc.splitTextToSize(item.topic, colTopicW - 14);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9.5);
+            const detailLines = doc.splitTextToSize(item.details, colDetailsW - 14);
+
+            const rowHeight = Math.max(topicLines.length, detailLines.length) * 13 + 16;
+            checkPageBreak(rowHeight);
+
+            doc.setDrawColor(226, 232, 240);
+            doc.line(margin, y + rowHeight, margin + contentWidth, y + rowHeight);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.setTextColor(15, 23, 42);
+            doc.text(topicLines, margin + 8, y + 14);
+
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9.5);
+            doc.setTextColor(71, 85, 105);
+            doc.text(detailLines, margin + colTopicW + 8, y + 14);
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(9.5);
+            doc.setTextColor(79, 70, 229);
+            doc.text(`${item.minutes} min`, margin + contentWidth - 8, y + 14, { align: 'right' });
+
+            y += rowHeight;
+          });
+
+          checkPageBreak(28);
+          doc.setFillColor(248, 250, 252);
+          doc.rect(margin, y, contentWidth, 26, 'F');
+          doc.setFont('helvetica', 'bold');
           doc.setFontSize(9.5);
           doc.setTextColor(71, 85, 105);
-          doc.text(detailLines, margin + colTopicW + 8, y + 14);
-
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(9.5);
+          doc.text('TOTAL SCHEDULED TIME', margin + contentWidth - 75, y + 16, { align: 'right' });
           doc.setTextColor(79, 70, 229);
-          doc.text(`${item.minutes} min`, margin + contentWidth - 8, y + 14, { align: "right" });
+          doc.text(`${totalScheduledMinutes} min`, margin + contentWidth - 8, y + 16, { align: 'right' });
 
-          y += rowHeight;
-        });
+          const filename = `${agenda.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-agenda.pdf`;
+          doc.save(filename);
+          triggerToast('PDF downloaded!');
+        } catch (err) {
+          console.error('PDF export failed:', err);
+          window.print();
+        } finally {
+          setIsExportingPdf(false);
+        }
+      };
 
-        // Total Row
-        const total = state.items.reduce((sum, it) => sum + (Number(it.minutes) || 0), 0);
-        checkPageBreak(28);
-        doc.setFillColor(248, 250, 252);
-        doc.rect(margin, y, contentWidth, 26, "F");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9.5);
-        doc.setTextColor(71, 85, 105);
-        doc.text("TOTAL SCHEDULED TIME", margin + contentWidth - 75, y + 16, { align: "right" });
-        doc.setTextColor(79, 70, 229);
-        doc.text(`${total} min`, margin + contentWidth - 8, y + 16, { align: "right" });
+      return (
+        <div className="min-h-screen bg-slate-50 text-slate-900">
+          {/* Toast Notification */}
+          {toast && (
+            <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-2.5 text-sm font-medium border border-slate-700 no-print">
+              <CheckIcon className="w-4 h-4 text-emerald-400" />
+              <span>{toast}</span>
+            </div>
+          )}
 
-        doc.save(`${slugify(state.title)}-agenda.pdf`);
-        showToast("PDF downloaded!");
-      } catch (err) {
-        console.error(err);
-        window.print();
-      } finally {
-        btn.disabled = false;
-      }
+          {/* Header */}
+          <header className="bg-white border-b border-slate-200 sticky top-0 z-30 no-print">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm">
+                  <CalendarIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h1 className="text-lg font-bold tracking-tight text-slate-900">AgendaCraft</h1>
+                  <p className="text-xs text-slate-500 hidden sm:block">
+                    Calendar event to structured meeting agenda builder
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => processCalendarInput(SAMPLE_ICS, 'sample.ics')}
+                className="text-xs sm:text-sm font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3.5 py-2 rounded-lg transition-colors"
+              >
+                Load Sample Event
+              </button>
+            </div>
+          </header>
+
+          {/* Main Content */}
+          <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* Left Panel */}
+              <div className="lg:col-span-4 space-y-6 no-print">
+                {/* Upload Box */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                    1. Import Calendar Event
+                  </h2>
+
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragging(true);
+                    }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragging(false);
+                      handleFileUpload(e.dataTransfer.files?.[0]);
+                    }}
+                    className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+                      isDragging
+                        ? 'border-indigo-500 bg-indigo-50/70'
+                        : 'border-slate-300 hover:border-indigo-500 hover:bg-indigo-50/40'
+                    }`}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".ics,.json,.csv,.txt"
+                      className="hidden"
+                      onChange={(e) => handleFileUpload(e.target.files?.[0])}
+                    />
+                    <UploadIcon className="w-7 h-7 text-indigo-600 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-slate-800">
+                      Drop calendar file or <span className="text-indigo-600 underline">browse</span>
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">Supports .ics, .json, or .csv</p>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-100">
+                    <button
+                      onClick={() => setShowPaste(!showPaste)}
+                      className="text-xs font-medium text-slate-600 hover:text-indigo-600"
+                    >
+                      {showPaste ? 'Hide paste box' : 'Or paste raw .ics / event notes'}
+                    </button>
+                    {showPaste && (
+                      <div className="mt-2.5 space-y-2">
+                        <textarea
+                          rows={4}
+                          value={rawPaste}
+                          onChange={(e) => setRawPaste(e.target.value)}
+                          placeholder="Paste BEGIN:VCALENDAR... or event notes here..."
+                          className="w-full text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                        <button
+                          onClick={() => processCalendarInput(rawPaste, 'pasted.txt')}
+                          className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold py-2 rounded-lg"
+                        >
+                          Generate Agenda from Text
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Optional Gemini API Key */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      2. Gemini AI Key (Optional)
+                    </h2>
+                    <SparklesIcon className="w-4 h-4 text-indigo-600" />
+                  </div>
+                  <p className="text-xs text-slate-500 mb-2.5">
+                    Works automatically with the built-in smart structurer, or add a Gemini API key (saved locally) for AI-tailored topic drafting.
+                  </p>
+                  <input
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => handleSaveApiKey(e.target.value)}
+                    placeholder="AIzaSy..."
+                    className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {/* Time Allocation */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                      Time Allocation
+                    </h2>
+                    <button
+                      onClick={autoBalanceTimes}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md"
+                    >
+                      <ScaleIcon className="w-3.5 h-3.5" />
+                      Auto-Balance
+                    </button>
+                  </div>
+
+                  <div className="flex items-baseline justify-between mb-2">
+                    <div>
+                      <span className="text-2xl font-bold text-slate-900">{totalScheduledMinutes}</span>
+                      <span className="text-xs text-slate-500 ml-1">min scheduled</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-slate-500">Target:</span>
+                      <input
+                        type="number"
+                        min={5}
+                        max={480}
+                        value={agenda.durationMinutes}
+                        onChange={(e) =>
+                          setAgenda((prev) => ({
+                            ...prev,
+                            durationMinutes: Math.max(5, Number(e.target.value) || 45)
+                          }))
+                        }
+                        className="w-14 text-right text-xs font-semibold bg-slate-50 border border-slate-200 rounded px-1.5 py-1"
+                      />
+                      <span className="text-xs text-slate-500">min</span>
+                    </div>
+                  </div>
+
+                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all ${
+                        timeDiff === 0
+                          ? 'bg-emerald-500'
+                          : timeDiff > 0
+                          ? 'bg-amber-500'
+                          : 'bg-indigo-500'
+                      }`}
+                      style={{
+                        width: `${Math.min(100, Math.round((totalScheduledMinutes / Math.max(1, agenda.durationMinutes)) * 100))}%`
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs font-medium mt-2 text-slate-600">
+                    {timeDiff === 0
+                      ? 'Perfectly balanced to meeting duration.'
+                      : timeDiff > 0
+                      ? `${timeDiff} min over scheduled meeting time.`
+                      : `${Math.abs(timeDiff)} min buffer remaining.`}
+                  </p>
+                </div>
+              </div>
+
+              {/* Right Panel: Agenda Sheet */}
+              <div className="lg:col-span-8 space-y-5">
+                {/* Toolbar */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 flex flex-wrap items-center justify-between gap-2.5 no-print">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleRegenerate}
+                      disabled={isGenerating}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg disabled:opacity-60"
+                    >
+                      <RefreshIcon className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
+                      {isGenerating ? 'Generating...' : 'Regenerate'}
+                    </button>
+                    <button
+                      onClick={addItem}
+                      className="inline-flex items-center gap-1 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-800 px-3 py-2 rounded-lg"
+                    >
+                      <PlusIcon className="w-3.5 h-3.5" />
+                      Add Topic
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={handleCopyMarkdown}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-lg"
+                    >
+                      <CopyIcon className="w-3.5 h-3.5" />
+                      Copy MD
+                    </button>
+                    <button
+                      onClick={handleCopyEmail}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-lg"
+                    >
+                      <MailIcon className="w-3.5 h-3.5" />
+                      Copy Email
+                    </button>
+                    <button
+                      onClick={handleDownloadMarkdown}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 px-3 py-2 rounded-lg"
+                    >
+                      <DownloadIcon className="w-3.5 h-3.5" />
+                      .md
+                    </button>
+                    <button
+                      onClick={handleDownloadPDF}
+                      disabled={isExportingPdf}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-lg"
+                    >
+                      <DownloadIcon className="w-3.5 h-3.5" />
+                      {isExportingPdf ? 'Creating PDF...' : 'Download PDF'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Agenda Document */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm print-clean overflow-hidden">
+                  <div className="h-2 bg-indigo-600" />
+                  <div className="p-6 sm:p-8 space-y-6">
+                    {/* Streamlined Header */}
+                    <div className="space-y-4 pb-6 border-b border-slate-200">
+                      <input
+                        type="text"
+                        value={agenda.title}
+                        onChange={(e) => setAgenda((prev) => ({ ...prev, title: e.target.value }))}
+                        className="w-full text-2xl sm:text-3xl font-bold text-slate-900 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-indigo-500 focus:outline-none pb-1"
+                      />
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                          <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
+                            <CalendarIcon className="w-3.5 h-3.5" /> Date
+                          </span>
+                          <input
+                            type="text"
+                            value={agenda.date}
+                            onChange={(e) => setAgenda((prev) => ({ ...prev, date: e.target.value }))}
+                            className="w-full text-sm font-medium text-slate-800 bg-transparent focus:outline-none"
+                          />
+                        </div>
+                        <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                          <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
+                            <ClockIcon className="w-3.5 h-3.5" /> Time
+                          </span>
+                          <input
+                            type="text"
+                            value={agenda.time}
+                            onChange={(e) => setAgenda((prev) => ({ ...prev, time: e.target.value }))}
+                            className="w-full text-sm font-medium text-slate-800 bg-transparent focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Attendees */}
+                      <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-100">
+                        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                          <UsersIcon className="w-3.5 h-3.5" /> Attendees
+                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {agenda.attendees.map((person, idx) => (
+                            <span
+                              key={idx}
+                              className="inline-flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-medium px-2.5 py-1 rounded-full"
+                            >
+                              {person}
+                              <button
+                                onClick={() => removeAttendee(idx)}
+                                className="text-slate-400 hover:text-rose-500 no-print"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                        <div className="mt-2 flex items-center gap-2 no-print">
+                          <input
+                            type="text"
+                            value={newAttendee}
+                            onChange={(e) => setNewAttendee(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && addAttendee()}
+                            placeholder="Add attendee and press Enter..."
+                            className="flex-1 text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                          <button
+                            onClick={addAttendee}
+                            className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 px-2.5 py-1.5"
+                          >
+                            Add
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Meeting Objective */}
+                      <div className="bg-indigo-50/50 rounded-xl p-3.5 border border-indigo-100/80">
+                        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-indigo-600 mb-1">
+                          <FileTextIcon className="w-3.5 h-3.5" /> Meeting Objective
+                        </span>
+                        <textarea
+                          rows={2}
+                          value={agenda.objective}
+                          onChange={(e) => setAgenda((prev) => ({ ...prev, objective: e.target.value }))}
+                          className="w-full text-sm text-slate-700 bg-transparent focus:outline-none resize-none leading-relaxed"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Outline Table */}
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                        Meeting Outline
+                      </h3>
+                      <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                              <th className="py-3 px-4 w-1/3">Topic</th>
+                              <th className="py-3 px-4">Details</th>
+                              <th className="py-3 px-4 w-28 text-right">Time</th>
+                              <th className="py-3 px-2 w-20 text-center no-print"></th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200 text-sm">
+                            {agenda.items.map((item, idx) => (
+                              <tr key={item.id} className="hover:bg-slate-50/70 group align-top">
+                                <td className="py-3 px-4">
+                                  <input
+                                    type="text"
+                                    value={item.topic}
+                                    onChange={(e) => updateItem(item.id, 'topic', e.target.value)}
+                                    className="w-full font-semibold text-slate-900 bg-transparent border-b border-transparent focus:border-indigo-500 focus:outline-none pb-0.5"
+                                  />
+                                </td>
+                                <td className="py-3 px-4">
+                                  <textarea
+                                    rows={2}
+                                    value={item.details}
+                                    onChange={(e) => updateItem(item.id, 'details', e.target.value)}
+                                    className="w-full text-slate-600 bg-transparent border-b border-transparent focus:border-indigo-500 focus:outline-none resize-none leading-snug"
+                                  />
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  <div className="inline-flex items-center justify-end gap-1">
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={300}
+                                      value={item.minutes}
+                                      onChange={(e) =>
+                                        updateItem(item.id, 'minutes', parseInt(e.target.value, 10) || 0)
+                                      }
+                                      className="w-14 text-right font-semibold text-indigo-700 bg-indigo-50/70 border border-indigo-100 rounded-md px-1.5 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-xs text-slate-500">min</span>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-2 text-center no-print">
+                                  <div className="flex items-center justify-center gap-1 opacity-50 group-hover:opacity-100">
+                                    <button
+                                      onClick={() => moveItem(idx, -1)}
+                                      className="p-1 text-slate-500 hover:text-slate-900"
+                                      title="Move up"
+                                    >
+                                      <ArrowUpIcon className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => moveItem(idx, 1)}
+                                      className="p-1 text-slate-500 hover:text-slate-900"
+                                      title="Move down"
+                                    >
+                                      <ArrowDownIcon className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={() => deleteItem(item.id)}
+                                      className="p-1 text-slate-400 hover:text-rose-600"
+                                      title="Delete"
+                                    >
+                                      <TrashIcon className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="bg-slate-50 border-t border-slate-200 font-semibold text-slate-800 text-xs">
+                              <td colSpan={2} className="py-3 px-4 text-right uppercase tracking-wider text-slate-500">
+                                Total Scheduled Time
+                              </td>
+                              <td className="py-3 px-4 text-right font-bold text-indigo-700">
+                                {totalScheduledMinutes} min
+                              </td>
+                              <td className="no-print"></td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      );
     }
 
-    function slugify(str) {
-      return (str || "meeting").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    }
-
-    function escapeHTML(str) {
-      return String(str || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
-    }
-
-    function escapeAttr(str) {
-      return escapeHTML(str).replace(/'/g, "&#39;");
-    }
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<AgendaCraft />);
   </script>
 </body>
 </html>
